@@ -104,11 +104,20 @@ struct InCallView: View {
         VStack(spacing: 24) {
             if engine.isRecording {
                 TimelineView(.periodic(from: .now, by: 1)) { _ in
-                    let seconds = Int(engine.recordingSnapshot()?.seconds ?? 0)
-                    Label(String(format: "REC %d:%02d", seconds / 60, seconds % 60),
-                          systemImage: "record.circle.fill")
-                        .foregroundStyle(.red)
-                        .font(.title3.monospacedDigit())
+                    let snapshot = engine.recordingSnapshot()
+                    let seconds = Int(snapshot?.seconds ?? 0)
+                    VStack(spacing: 8) {
+                        Label(String(format: "REC %d:%02d", seconds / 60, seconds % 60),
+                              systemImage: "record.circle.fill")
+                            .foregroundStyle(.red)
+                            .font(.title3.monospacedDigit())
+                        if snapshot?.inputSilent == true, !engine.isMicMuted {
+                            Label("MIC IS SILENT — check your headset plug",
+                                  systemImage: "mic.slash.circle.fill")
+                                .foregroundStyle(.red)
+                                .font(.caption.bold())
+                        }
+                    }
                 }
             } else if let error = engine.recordingStartError {
                 Text("NOT RECORDING — \(error)").foregroundStyle(.red)
