@@ -19,7 +19,14 @@ video calls** and delivers it to Liva, time-aligned across participants:
 - Interruptions (calls, Siri, route changes, reconnects, airplane mode) are
   survived and logged with timestamps, never papered over.
 
-## Non-technical? Paste this to your AI agent
+## Never programmed before? Start here instead
+
+**[GETTING_STARTED.md](GETTING_STARTED.md)** walks you from a blank Mac to
+a working recording app on your iPhone — installing the tools, creating
+your Liva account and key, and having an AI assistant build the entire app
+for you. No programming experience assumed.
+
+## Have an app already? Paste this to your AI agent
 
 You don't need to read the rest of this page. Copy the block below into your
 coding agent (Claude Code, Codex, Cursor, Replit, …), fill in the two
@@ -74,7 +81,7 @@ import LivaKit
 
 // App/scene init — one call is the whole lifecycle hook:
 LivaKit.configure(LivaConfiguration(
-    serverURL: URL(string: "https://<your-liva-endpoint>")!,
+    serverURL: URL(string: "https://dashboard.crowdplay.ai")!,
     appKey: "<your app key>"
 ))
 
@@ -140,7 +147,7 @@ Your app key is also your data-access credential — plain HTTPS, no AWS
 account, no SDK required (use it from your backend, a script, or curl):
 
 ```bash
-BASE=https://<your-liva-endpoint>
+BASE=https://dashboard.crowdplay.ai
 
 # Your app's sessions, newest first, with render state:
 curl -H "x-liva-key: $APP_KEY" $BASE/sessions

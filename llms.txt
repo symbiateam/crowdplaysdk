@@ -1,71 +1,258 @@
 # LivaKit
 
-> Swift package for iOS (17+) that records studio-grade per-participant audio
-> (48 kHz / 24-bit WAV, unprocessed) and 1080p30 video locally during a live
-> video call, time-aligns all participants on a shared clock, and uploads
-> everything to Liva automatically. You integrate ~5 calls; capture, sync,
-> consent evidence, upload, retry and crash recovery are handled inside.
+> Swift package for iOS (17+) that records studio-grade per-participant
+> audio (48 kHz / 24-bit WAV, unprocessed) and 1080p30 HEVC video LOCALLY
+> on each participant's device during a live video call, time-aligns every
+> participant's recording on a shared clock (millisecond accuracy), and
+> uploads everything to Liva automatically. The integrating app makes ~5
+> calls; capture, clock sync, consent evidence, upload, retry, and crash
+> recovery all happen inside the SDK.
 
-RULES THAT PREVENT THE COMMON MISTAKES — read before the checklist:
-- LivaKit is the ONLY package you add and `import LivaKit` the ONLY import
-  you write. LivaKit re-exports everything, including the LiveKit call-UI
-  types (SwiftUIVideoView, RemoteParticipant, Room). NEVER add, pin, import
-  or update LiveKit or WebRTC yourself — the correct version ships inside
-  LivaKit, matched to the capture engine; a different one breaks recording.
-- NEVER write your own AVAudioSession, AVAudioEngine, or AVCaptureSession
-  code in an app using LivaKit — the SDK owns the microphone and camera.
-  Touching them corrupts the recording.
-- NEVER skip or fake the consent step. join() requires a ConsentRecord and
-  the user must actually see the consent text first.
+This file is the complete integration contract for an AI coding agent.
+Follow it exactly. When this file and your instincts disagree, this file
+wins.
 
-Agent checklist to wire LivaKit into an existing SwiftUI app:
+## The mental model (read first)
 
-1. Add the LivaKit Swift package to the app target.
-2. Info.plist: add NSMicrophoneUsageDescription, NSCameraUsageDescription,
-   and UIBackgroundModes = [audio]. Missing usage strings crash the app at
-   first mic/camera access.
-3. At app launch call:
-   LivaKit.configure(LivaConfiguration(serverURL: <Liva endpoint URL>,
-                                       appKey: <app key>))
-   This also resumes any uploads interrupted by a crash or reboot.
-4. In the UIApplicationDelegate, forward
-   application(_:handleEventsForBackgroundURLSession:completionHandler:)
-   to LivaKit.handleBackgroundURLSessionEvents(completionHandler:).
-5. Create one @StateObject CallEngine(). Before joining, obtain a
-   ConsentRecord — either present the SDK's LivaConsentView { record in … }
-   or construct ConsentRecord(givenAt: Date()) after your own consent UI.
-   join REQUIRES it (non-optional parameter): recording cannot start
-   without consent, by design. Do not fabricate a record without showing
-   the consent text (LivaConsent.text) to the user.
-6. Join: await engine.join(displayName:roomCode:consent:). Recording starts
-   automatically on join and stops on engine.leave(); uploads then run on a
-   background URLSession (audio + metadata on any network, video WiFi-only).
-7. UI you should surface: engine.phase (connection state),
-   engine.isRecording + engine.recordingSnapshot() (REC indicator),
-   engine.recordingStartError (show prominently — non-nil means NOT
-   recording), engine.uploads (progress; keep users from force-quitting
-   until complete), engine.crossTalkRisk (warn: use headphones).
-8. Controls: engine.toggleMute() (also silences the recording),
-   engine.toggleCamera() (records black, timeline continuous),
-   engine.leave().
-9. Verify with: await LivaKit.doctor() — checks configuration, permissions,
-   disk, backend reachability and app-key auth; each failure names its fix.
-10. Test on a REAL device (Simulator has no camera/mic). Record ~1 minute,
-    confirm the upload reaches "done".
+Two media paths run at once and must never be confused:
+- PATH A, the live call: LiveKit/WebRTC streams compressed audio/video
+  between participants so they can talk. Deliberately low quality
+  (default 640x360@24, 500 kbps video, 32 kbps Opus). Nothing from this
+  path is kept.
+- PATH B, the recording: each device records ITS OWN microphone and camera
+  from the hardware at full quality, writes to local disk, uploads after.
+  This is the product. It is unaffected by network quality, call quality
+  settings, or what other participants do.
 
-Constraints and facts:
-- iOS 17+, Swift 5.10+. Depends on LiveKit (exact 2.16.0) and swift-atomics.
-- Keep the screen awake during sessions (isIdleTimerDisabled = true) — no
-  CallKit integration, a locked phone suspends capture.
-- ~2 GB per participant-hour of storage; join refuses below 8 GB free.
-- Local files are deleted only after Liva's storage acknowledges them.
-- LivaConfiguration knobs: uploadsEnabled, deleteAfterUpload,
-  videoUploadsOnCellular, requiredFreeDiskBytes, remoteAudioGain.
-- Slow join or glitchy first seconds of a recording indicate a poor radio
-  environment (congested WiFi + Bluetooth share the 2.4 GHz antenna) or the
-  Xcode debugger being attached — not an integration bug. Capture self-heals
+Consequences an agent must internalize:
+- A bad network makes the CALL ugly; the RECORDING stays perfect.
+- Each device records only its own participant. A 3-person call produces
+  3 uploads that Liva's backend aligns into one session.
+- Recording starts automatically on join() and stops on leave(). There is
+  no separate record button to build.
+
+## Hard rules (violations corrupt recordings or break builds)
+
+1. LivaKit is the ONLY package you add and `import LivaKit` the ONLY
+   import you write. LivaKit re-exports everything, including the LiveKit
+   call-UI types (SwiftUIVideoView, RemoteParticipant, Room). NEVER add,
+   pin, import, or update LiveKit or WebRTC yourself — the correct version
+   ships inside LivaKit, matched to the capture engine. Adding your own
+   causes duplicate-symbol build failures or, worse, a version mismatch
+   that silently breaks capture.
+2. NEVER write AVAudioSession, AVAudioEngine, AVCaptureSession, or
+   AVAudioRecorder code in an app using LivaKit. The SDK owns the
+   microphone and the camera, and iOS allows only one owner. Touching them
+   — even "harmlessly" setting a category — corrupts the recording.
+3. NEVER skip, fake, or auto-dismiss the consent step. join() requires a
+   ConsentRecord (non-optional parameter — the compiler enforces it) and
+   the user must actually SEE the consent text before you mint one.
+   Constructing ConsentRecord(givenAt: Date()) without showing
+   LivaConsent.text to the user creates false legal evidence.
+4. NEVER call the microphone/camera before Info.plist has
+   NSMicrophoneUsageDescription and NSCameraUsageDescription. iOS kills
+   the app instantly (not an exception you can catch).
+5. Test on a REAL iPhone. The Simulator has no camera or microphone;
+   recording code paths cannot be exercised there at all.
+
+## Integration procedure
+
+### Step 1 — add the package
+
+Xcode: File > Add Package Dependencies > paste this repository's URL >
+add product "LivaKit" to the app target. The package resolves a compiled
+binary (LivaKitCore) plus a thin source shim; no other setup.
+
+### Step 2 — Info.plist
+
+    NSMicrophoneUsageDescription = "Records your microphone during sessions."
+    NSCameraUsageDescription     = "Records your camera during sessions."
+    UIBackgroundModes            = [audio]
+
+UIBackgroundModes audio keeps capture alive if the app is briefly
+backgrounded and lets uploads finish after the call.
+
+### Step 3 — configure at launch
+
+    import LivaKit
+
+    // In App.init() or application(_:didFinishLaunchingWithOptions:):
+    LivaKit.configure(LivaConfiguration(
+        serverURL: URL(string: "https://dashboard.crowdplay.ai")!,
+        appKey: "<the builder's liva_pk_… key from the Liva dashboard>"
+    ))
+
+configure() is also the crash-recovery hook: it resumes any uploads
+interrupted by a crash, reboot, or dead battery. Call it exactly once,
+before any other SDK use (using the SDK unconfigured is a deliberate
+preconditionFailure with a clear message).
+
+Optional LivaConfiguration fields (defaults are hardware-proven; change
+only when asked to):
+
+    uploadsEnabled: Bool = true          // false = recordings stay on device (dev only)
+    deleteAfterUpload: Bool = true       // local files removed only AFTER S3 acknowledges
+    videoUploadsOnCellular: Bool = false // audio+manifests always upload on any network;
+                                         // video (~2 GB/session) waits for WiFi unless true
+    requiredFreeDiskBytes: Int64 = 8 GB  // join() refuses below this
+    remoteAudioGain: Double = 1.0        // playout gain; >1.0 increases cross-talk bleed
+    logSessionsTreeAtLaunch: Bool = false
+    callQuality: CallQuality             // PATH A ONLY, see below
+
+CallQuality (live call appearance; the recording is always full quality
+regardless): videoWidth/videoHeight (default 640x360, clamped
+160x90…1280x720), videoFps (24, clamped 10…30), videoBitrate (500_000,
+clamped 100k…2.5M), audioBitrate (32_000, clamped 16k…128k). Raising these
+costs uplink bandwidth and thermal headroom that the recording needs on
+long sessions — leave defaults unless the builder explicitly wants a
+prettier live picture.
+
+### Step 4 — background upload hook
+
+    // UIApplicationDelegate:
+    func application(_ application: UIApplication,
+                     handleEventsForBackgroundURLSession identifier: String,
+                     completionHandler: @escaping () -> Void) {
+        LivaKit.handleBackgroundURLSessionEvents(completionHandler: completionHandler)
+    }
+
+Without this, iOS eventually stops delivering background-upload events to
+the app and post-call uploads stall until next launch.
+
+### Step 5 — consent, then join
+
+    @StateObject private var engine = CallEngine()   // one per app
+
+    // The drop-in consent screen (recommended):
+    LivaConsentView { consent in
+        Task { await engine.join(displayName: name, roomCode: code, consent: consent) }
+    }
+
+    // OR custom consent UI — MUST display LivaConsent.text verbatim, then:
+    let consent = ConsentRecord(givenAt: Date())
+
+roomCode is any string the participants share (like a meeting ID); everyone
+who joins with the same code lands in the same call and the same aligned
+session. It is normalized internally (trimmed, filesystem-safe), so
+user-typed codes with stray spaces are fine.
+
+Tip: call LivaKit.warmUp() when the join screen appears — it pre-warms the
+backend connection so joining is faster.
+
+### Step 6 — build the call UI from engine state
+
+CallEngine is an ObservableObject. Published state:
+
+    engine.phase                // .idle / .connecting / .connected / .failed(String)
+    engine.isRecording          // true while capturing
+    engine.isMicMuted
+    engine.isCameraEnabled
+    engine.recordingStartError  // String?; NON-NIL MEANS THE SESSION IS NOT
+                                // BEING RECORDED. Show it prominently and
+                                // offer engine.retryRecording(displayName:).
+    engine.uploads              // [UploadManager.Progress] — per-session upload
+                                //   progress: .fraction (0…1), .isComplete,
+                                //   .bytesUploaded/.bytesTotal, .video (per-kind),
+                                //   .isFinishedWithFailures (offer retryUploads())
+    engine.uploadsOnWiFi        // false = video is waiting for WiFi; say so in UI
+    engine.crossTalkRisk        // true = far-end audio is leaking into the mic
+                                //   (loudspeaker use) — tell the user to wear headphones
+    engine.headphonesConnected
+    engine.currentOutputName    // e.g. "AirPods Pro" — for a route indicator
+    engine.room                 // the live Room: engine.room.remoteParticipants
+                                //   for rendering video tiles
+
+Render remote video tiles with the re-exported SwiftUIVideoView:
+
+    ForEach(Array(engine.room.remoteParticipants.values), id: \.identity) { p in
+        if let track = p.firstCameraVideoTrack {
+            SwiftUIVideoView(track)
+        }
+    }
+    // Self view: engine.room.localParticipant.firstCameraVideoTrack,
+    // rendered with SwiftUIVideoView(track, mirrorMode: .mirror).
+
+Poll engine.recordingSnapshot() at ~1 Hz for the REC indicator; it returns
+seconds recorded, segments closed, droppedSamples, inputLevelDbfs,
+inputSilent (mic delivering silence — dead mic), audioStalled (capture
+stalled, self-healing in progress), fullScaleSamples (clipping). Surface
+inputSilent / audioStalled / clipping as visible warnings — they mean the
+data being captured right now is degraded and the user can often fix it
+(replug mic, move phone).
+
+### Step 7 — controls
+
+    await engine.toggleMute()   // mutes the CALL and writes SILENCE to the
+                                // recording (never secretly records a muted user)
+    engine.toggleCamera()       // black frames on both paths; timeline continuous
+    await engine.leave()        // stops recording; uploads start automatically
+
+After leave(), keep the app open until every engine.uploads entry
+.isComplete — tell the user this in the UI. Force-quitting pauses uploads
+until next launch (nothing is lost; they resume).
+
+Advanced (only when the builder asks): engine.micOptions +
+selectMicrophone(_:) (built-in / wired / external mic policy; Bluetooth
+mics are deliberately excluded — HFP drops the whole session to 16 kHz),
+engine.selectOutput(_:) (speaker vs automatic), engine.sessionMode.
+
+### Step 8 — verify
+
+    let checks = await LivaKit.doctor()   // [DoctorCheck(id, passed, detail)]
+
+Doctor checks: configured, Info.plist strings, mic+camera permission,
+free disk, backend reachable, app key authenticates. Every failing check's
+detail names its own fix. Fix everything, then have the human record ~1
+minute on a real iPhone and confirm the upload reaches complete.
+
+## Accessing recordings (no AWS, no SDK — plain HTTPS)
+
+The app key doubles as the data credential:
+
+    GET https://dashboard.crowdplay.ai/sessions
+        header x-liva-key: <app key>
+        -> [{sessionId, state ("uploading"|"ok"|"partial"|"failed"),
+             participants, warnings, uploadedAt}]
+
+    GET https://dashboard.crowdplay.ai/sessions/<sessionId>/files
+        header x-liva-key: <app key>
+        -> [{path, bytes, url}]   // url = 1-hour presigned download
+
+deliverable/ is what a consumer uses: speaker-<name>.wav per participant
+(48 kHz/24-bit, drift-corrected — all files play together with NO offset),
+conversation.wav (mixed), conversation_stereo.wav (2-person),
+alignment.json, qc.json (quality verdict). raw/ is the untouched
+per-device capture. A key can only see its own app's sessions. Humans use
+the same data via https://dashboard.crowdplay.ai (sign in, click, download).
+
+## Facts, limits, troubleshooting
+
+- iOS 17+, Swift 5.10+. Ships LiveKit (exact-pinned) + swift-atomics inside.
+- Storage: ~2 GB per participant-hour (video-dominated). join() refuses
+  below 8 GB free (configurable).
+- Keep the screen awake in sessions: view.onAppear
+  { UIApplication.shared.isIdleTimerDisabled = true } (and false on leave).
+  There is no CallKit integration; a locked phone suspends capture.
+- Participants should wear wired or closed-back headphones. Loudspeaker
+  playback leaks the far end into the local mic (crossTalkRisk warns live).
+- Interruptions (phone call, Siri, route change, reconnect) are survived:
+  capture watchdogs force-restart a stalled engine within ~3 s and every
+  event is logged into the session manifest with timestamps.
+- Slow join or glitchy first seconds of a recording = poor radio
+  environment (congested 2.4 GHz WiFi + Bluetooth share the antenna) or
+  the Xcode debugger attached — NOT an integration bug. Capture self-heals
   once the link settles. Advise: better network, wired headphones, launch
   from the home screen when evaluating quality.
+- "unauthorized"/401 from the backend: the app key is wrong or was
+  regenerated — copy it again from the dashboard. Keys are shown once at
+  creation; only a hash is stored.
+- Build error "duplicate symbol"/"multiple commands produce" mentioning
+  LiveKit or WebRTC: the app added its own LiveKit dependency — remove it
+  (rule 1).
+- App crashes instantly on join: missing Info.plist usage description
+  (rule 4). doctor() catches this.
 
-Reference integration: Examples/LivaKitSample (~130 lines, complete).
-Full docs: README.md in this package.
+Reference integration: Examples/LivaKitSample in this repository — a
+complete consent -> join -> record -> upload app in ~130 lines. Prefer
+copying its structure over inventing one.
+Human-readable docs: README.md. Zero-experience walkthrough: GETTING_STARTED.md.
