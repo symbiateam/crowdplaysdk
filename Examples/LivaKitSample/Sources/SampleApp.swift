@@ -117,6 +117,12 @@ struct InCallView: View {
                                 .foregroundStyle(.red)
                                 .font(.caption.bold())
                         }
+                        if snapshot?.audioStalled == true {
+                            Label("AUDIO STALLED — recovering…",
+                                  systemImage: "exclamationmark.arrow.circlepath")
+                                .foregroundStyle(.red)
+                                .font(.caption.bold())
+                        }
                     }
                 }
             } else if let error = engine.recordingStartError {
