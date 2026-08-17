@@ -6,7 +6,7 @@ video calls** and delivers it to Liva, time-aligned across participants:
 - Local capture per participant: **48 kHz / 24-bit raw WAV** (echo
   cancellation, gain control and noise suppression OFF on the recorded path)
   plus **1080p30 HEVC** video — untouched by the network.
-- The live call itself runs over LiveKit/WebRTC at deliberately low quality;
+- The live call itself runs over LiveKit/WebRTC at a quality you choose;
   the recording never goes through the call.
 - Continuous clock sync places every participant's recording on a shared
   timeline with millisecond accuracy — participants can join whenever.
