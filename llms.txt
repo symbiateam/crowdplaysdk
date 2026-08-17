@@ -61,6 +61,11 @@ Constraints and facts:
 - Local files are deleted only after Liva's storage acknowledges them.
 - LivaConfiguration knobs: uploadsEnabled, deleteAfterUpload,
   videoUploadsOnCellular, requiredFreeDiskBytes, remoteAudioGain.
+- Slow join or glitchy first seconds of a recording indicate a poor radio
+  environment (congested WiFi + Bluetooth share the 2.4 GHz antenna) or the
+  Xcode debugger being attached — not an integration bug. Capture self-heals
+  once the link settles. Advise: better network, wired headphones, launch
+  from the home screen when evaluating quality.
 
 Reference integration: Examples/LivaKitSample (~130 lines, complete).
 Full docs: README.md in this package.

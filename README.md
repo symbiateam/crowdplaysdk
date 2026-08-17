@@ -168,6 +168,15 @@ list and download sessions recorded with your own key.
   The SDK surfaces this live (`engine.crossTalkRisk`).
 - `LivaConfiguration` exposes the tuning knobs (cellular video, delete-after-
   upload, disk floor); the defaults are the configuration proven on hardware.
+- **Slow join + glitchy first seconds = bad radio, not a bug.** On a poor
+  network (especially congested 2.4 GHz WiFi with Bluetooth headphones —
+  they share the antenna), the call takes longer to connect and iOS's audio
+  I/O can stutter while the Bluetooth link settles, chopping the first
+  seconds of the recording. The capture self-heals once the link stabilizes
+  and the rest of the session is unaffected. If you see this: move to a
+  better network, prefer wired headphones, and when testing, launch the app
+  from the home screen — running under Xcode's debugger adds enough overhead
+  to cause the same symptoms on first launch.
 
 ## Example
 
