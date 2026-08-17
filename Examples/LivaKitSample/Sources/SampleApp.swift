@@ -14,7 +14,7 @@ struct SampleApp: App {
         // Paste your app key into SampleSecrets.swift (from the Liva
         // dashboard) before running.
         LivaKit.configure(LivaConfiguration(
-            serverURL: URL(string: "https://qk3grprk2reflvyhihftoncoje0pavjk.lambda-url.us-east-1.on.aws")!,
+            serverURL: URL(string: "https://dashboard.crowdplay.ai")!,
             appKey: SampleSecrets.appKey
         ))
     }

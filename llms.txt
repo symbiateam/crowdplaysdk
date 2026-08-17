@@ -205,6 +205,13 @@ free disk, backend reachable, app key authenticates. Every failing check's
 detail names its own fix. Fix everything, then have the human record ~1
 minute on a real iPhone and confirm the upload reaches complete.
 
+Before the device test: building for a physical iPhone requires code
+signing, which the Simulator never exercises. Ensure the app target has a
+development team (the DEVELOPMENT_TEAM build setting / the Team dropdown
+in Signing & Capabilities) — a project scaffolded outside Xcode's
+new-project wizard usually has none, and the device build fails with
+'Signing for "<app>" requires a development team' until one is set.
+
 ## Accessing recordings (no AWS, no SDK — plain HTTPS)
 
 The app key doubles as the data credential:
@@ -251,6 +258,12 @@ the same data via https://dashboard.crowdplay.ai (sign in, click, download).
   (rule 1).
 - App crashes instantly on join: missing Info.plist usage description
   (rule 4). doctor() catches this.
+- qc.json warnings "no alignment for: <name>" / "no clock_model" on a
+  short solo smoke test (~1 participant, <1 minute): expected, not a bug.
+  Alignment lines up MULTIPLE participants, and the clock model needs more
+  probe data than a few seconds provides — despite the "was the /time
+  probe path reachable?" wording, the probe path is usually fine. Judge
+  alignment with a 2-person call of a minute or more.
 
 Reference integration: Examples/LivaKitSample in this repository — a
 complete consent -> join -> record -> upload app in ~130 lines. Prefer
