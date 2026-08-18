@@ -264,6 +264,6 @@ the same data via https://dashboard.crowdplay.ai (sign in, click, download).
   (rule 4). doctor() catches this.
 
 Reference integration: Examples/LivaKitSample in this repository — a
-complete consent -> join -> record -> upload app in ~130 lines. Prefer
+complete consent -> join -> record -> upload app in ~150 lines. Prefer
 copying its structure over inventing one.
 Human-readable docs: README.md. Zero-experience walkthrough: GETTING_STARTED.md.

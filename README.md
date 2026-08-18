@@ -190,6 +190,6 @@ list and download sessions recorded with your own key.
 
 ## Example
 
-`../Examples/LivaKitSample` is a complete integration in ~130 lines: consent
+`../Examples/LivaKitSample` is a complete integration in ~150 lines: consent
 screen → join form → REC indicator → leave, plus a doctor button. Build it
 with `xcodegen generate && open LivaKitSample.xcodeproj`.
