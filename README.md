@@ -29,27 +29,41 @@ a working recording app on your iPhone — installing the tools, creating
 your CrowdPlay account and key, and having an AI assistant build the entire app
 for you. No programming experience assumed.
 
-## Have an app already? Paste this to your AI agent
+## Paste this to your AI agent
 
 You don't need to read the rest of this page. Copy the block below into your
-coding agent (Claude Code, Codex, Cursor, Replit, …), fill in the two
-blanks, and it will do the whole integration:
+coding agent (Claude Code, Codex, Cursor, Replit, …), fill in the blanks,
+and it will build your app — or sign in at https://dashboard.crowdplay.ai
+and use **Copy agent prompt** next to your key to get this pre-filled:
 
 ```
-Integrate the CrowdPlaySDK SDK into my iOS app so every video-call session is
-recorded and delivered to CrowdPlay.
+I'm building this app: <YOUR APP IDEA — e.g., a tutoring app where
+students and tutors meet over video>
 
-- Package: add the CrowdPlaySDK Swift package from https://github.com/symbiateam/crowdplaysdk.
-  CrowdPlaySDK is the ONLY package to add and `import CrowdPlaySDK` the only import —
-  it re-exports everything it needs (including LiveKit). Never add, pin, or
-  import LiveKit or WebRTC yourself.
+Build it as a native iOS app (SwiftUI, iOS 17+). For the video-call
+feature, use the CrowdPlaySDK Swift package from https://github.com/symbiateam/crowdplaysdk.
+
+What the app is about — read carefully:
+- The app's name, screens, and flows are about MY IDEA above. The SDK
+  records calls in the background for CrowdPlay; recording is NOT the
+  app's purpose and must not be presented as it. It appears in the UI in
+  exactly three places: the SDK's consent screen before joining a call, a
+  small REC indicator during the call, and join/leave.
+- Keep the SDK integration minimal: consent screen → join/leave → call
+  screen. Do NOT build upload screens, diagnostics screens, or SDK
+  settings. Uploads happen automatically in the background.
+
 - My CrowdPlay app key: <APP KEY from the CrowdPlay dashboard>
+- CrowdPlaySDK is the ONLY package to add and `import CrowdPlaySDK` the
+  only import — it re-exports everything it needs (including LiveKit).
+  Never add, pin, or import LiveKit or WebRTC yourself.
 - Follow the checklist in the package's llms.txt exactly: Info.plist
-  permissions, CrowdPlay.configure at launch, the background-upload hook, the
-  consent screen before joining (required — join() will not compile without
-  a ConsentRecord), and a join/leave UI.
-- Finish by running `await CrowdPlay.doctor()` and fixing anything it flags,
-  then tell me to test on a real iPhone (the Simulator has no camera/mic).
+  permissions, CrowdPlay.configure at launch, the background-upload hook,
+  and the consent screen before joining (required — join() will not
+  compile without a ConsentRecord).
+- When the code is done, run `await CrowdPlay.doctor()` as a development
+  check (not an app screen) and fix anything actionable, then tell me to
+  test on a real iPhone (the Simulator has no camera/mic).
 ```
 
 ## Integration (4 steps)

@@ -31,6 +31,30 @@ Consequences an agent must internalize:
 - Recording starts automatically on join() and stops on leave(). There is
   no separate record button to build.
 
+## The HOST APP is the product — not recording
+
+The builder came to you with an app idea (a tutoring app, a language-
+exchange app, a remote interview tool…). Build THAT app. The SDK records
+its video calls invisibly in the background; recording is infrastructure,
+not identity:
+
+- The app's NAME, description, onboarding, and screens are about the
+  builder's idea. Never name or describe the app around recording
+  ("lossless recorder", "records and stores your calls" — wrong).
+- Recording surfaces in the UI in exactly three places: the consent
+  screen before joining a call (required), a small REC indicator during
+  the call, and join/leave. That is the whole visible footprint.
+- Do NOT build: upload-progress screens, diagnostics/doctor screens, SDK
+  settings pages, recording libraries or playback. Uploads run
+  automatically in the background (they even run during the call);
+  doctor() is a development-time check you run yourself, not a screen.
+- After leave(), at most show one quiet line ("finishing up…") if uploads
+  are still trailing; do not build a dedicated upload screen unless the
+  builder explicitly asks.
+- If the builder's instruction mentions only "video calls", still use
+  this SDK exactly as specified here — consent included. Consent is the
+  one recording-related UI that must never be minimized away.
+
 ## Hard rules (violations corrupt recordings or break builds)
 
 1. CrowdPlaySDK is the ONLY package you add and `import CrowdPlaySDK` the ONLY
@@ -190,9 +214,11 @@ data being captured right now is degraded and the user can often fix it
     engine.toggleCamera()       // black frames on both paths; timeline continuous
     await engine.leave()        // stops recording; uploads start automatically
 
-After leave(), keep the app open until every engine.uploads entry
-.isComplete — tell the user this in the UI. Force-quitting pauses uploads
-until next launch (nothing is lost; they resume).
+After leave(), uploads finish automatically in the background — most
+already went out during the call. Show at most one quiet line ("finishing
+up…") while `engine.uploads` has an incomplete entry; do NOT build a
+dedicated upload screen (see "The HOST APP is the product"). Force-
+quitting pauses uploads until next launch (nothing is lost; they resume).
 
 Advanced (only when the builder asks): engine.micOptions +
 selectMicrophone(_:) (built-in / wired / external mic policy; Bluetooth

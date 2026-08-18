@@ -48,11 +48,15 @@ don't have one, here is the Claude Code route:
 
 1. In your browser, go to **https://dashboard.crowdplay.ai**
 2. Click **Create account**, enter your email and a password.
-3. Click **Generate key**. Type your company or project name and confirm.
+3. Click **Generate key**. Type your project's name and, in "What are you
+   building?", a one-line description of your app idea (for example: *a
+   tutoring app where students and tutors meet over video*).
 4. A key that looks like `liva_pk_yourname_abc123…` is created and copied
-   for you. You will paste it into the AI's instructions in the next step.
-   Don't worry about losing it — you can view and copy your keys in the
-   dashboard any time (up to 5 keys per account).
+   for you. Don't worry about losing it — you can view and copy your keys
+   in the dashboard any time (up to 5 keys per account).
+5. Best shortcut: press **Copy agent prompt** next to your key — it gives
+   you the entire Step 4 instruction below with your key and your app
+   idea already filled in.
 
 This dashboard is also where your recordings will appear later.
 
@@ -62,28 +66,39 @@ Copy the entire block below, paste it into your AI assistant, and replace
 the two `<...>` parts before sending:
 
 ```
-Build me a complete, minimal iOS app (SwiftUI, iOS 17+) for recorded
-video calls using the CrowdPlaySDK SDK, and walk me through everything —
-assume I have never used Xcode.
+I'm building this app: <YOUR APP IDEA — e.g., a tutoring app where
+students and tutors meet over video. If you just want to try things
+out, write: a simple video-call app>
+
+Build it as a complete native iOS app (SwiftUI, iOS 17+) and walk me
+through everything — assume I have never used Xcode. For the video-call
+feature, use the CrowdPlaySDK Swift package from:
+https://github.com/symbiateam/crowdplaysdk
+
+What the app is about — read carefully:
+- The app's name, screens, and flows are about MY IDEA above. The SDK
+  records calls in the background for CrowdPlay; recording is NOT the
+  app's purpose and must not be presented as it. It appears in the UI
+  in exactly three places: the SDK's consent screen before joining a
+  call, a small REC indicator during the call, and join/leave.
+- Keep the SDK integration minimal: consent screen → join/leave → call
+  screen with everyone's video and mute/camera/leave buttons. Do NOT
+  build upload screens, diagnostics screens, or SDK settings. Uploads
+  happen automatically in the background.
 
 - Create a new Xcode project for me (tell me every click), or generate
   the project yourself if you have tools for that.
-- Add the CrowdPlaySDK Swift package from:
-  https://github.com/symbiateam/crowdplaysdk
-  CrowdPlaySDK is the ONLY package to add and `import CrowdPlaySDK` the only
-  import. Never add LiveKit or WebRTC yourself.
+- CrowdPlaySDK is the ONLY package to add and `import CrowdPlaySDK` the
+  only import. Never add LiveKit or WebRTC yourself.
 - My CrowdPlay app key is: <PASTE YOUR liva_pk_… KEY HERE>
-- My app should have: a screen to type my name and a room code, the
-  SDK's consent screen, a call screen showing everyone's video with
-  mute / camera / leave buttons and a recording indicator, and an
-  upload-progress view after the call.
 - Follow the CrowdPlaySDK package's llms.txt exactly (permissions,
   CrowdPlay.configure at launch, the background-upload hook, consent
   before joining).
-- When the code is done, run `await CrowdPlay.doctor()` and fix anything
-  it flags. Then give me exact step-by-step instructions (every click)
-  to run the app on my physical iPhone, including the free Apple
-  signing setup and iPhone Developer Mode.
+- When the code is done, run `await CrowdPlay.doctor()` as a development
+  check (not an app screen) and fix anything actionable. Then give me
+  exact step-by-step instructions (every click) to run the app on my
+  physical iPhone, including the free Apple signing setup and iPhone
+  Developer Mode.
 - My iPhone model and iOS version are: <e.g. iPhone 15, iOS 18>
 ```
 
