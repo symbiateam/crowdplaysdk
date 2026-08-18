@@ -235,8 +235,26 @@ detail names its own fix. NOTE: on a fresh install the "permissions" check
 reports "not requested yet — NORMAL"; that is the expected pre-first-run
 state (iOS prompts at first join), not an integration bug — do not hunt
 for one. Only a DENIED state needs action (the user re-enables in
-Settings). Fix everything actionable, then have the human record ~1 minute
-on a real iPhone and confirm the upload reaches complete.
+Settings). Fix everything actionable, then move to Step 9.
+
+### Step 9 — hand off to the builder (REQUIRED final message)
+
+The Simulator has no camera or microphone, so NOTHING you built can be
+validated until it runs on a real iPhone. Do not end with "the
+implementation is complete" — your FINAL message after implementing must
+walk the builder through their next step, explicitly:
+
+1. Plug an iPhone into the Mac; tap "Trust This Computer" on the phone.
+   First time only: Settings > Privacy & Security > Developer Mode > ON
+   (the phone restarts).
+2. In Xcode: Signing & Capabilities > pick a Team (a free Personal Team
+   works); select the iPhone in the device menu; press Run. If the phone
+   says "Untrusted Developer": Settings > General > VPN & Device
+   Management > Trust, then Run again.
+3. In the app: allow microphone + camera when prompted, join any room
+   code, talk for about a minute, then leave.
+4. Check https://dashboard.crowdplay.ai — the session appears there with
+   its recording; that is the proof the integration works end to end.
 
 ## Accessing recordings (no AWS, no SDK — plain HTTPS)
 

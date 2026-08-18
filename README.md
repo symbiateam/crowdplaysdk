@@ -62,8 +62,13 @@ What the app is about — read carefully:
   and the consent screen before joining (required — join() will not
   compile without a ConsentRecord).
 - When the code is done, run `await CrowdPlay.doctor()` as a development
-  check (not an app screen) and fix anything actionable, then tell me to
-  test on a real iPhone (the Simulator has no camera/mic).
+  check (not an app screen) and fix anything actionable.
+- Your FINAL message must walk me through testing on my real iPhone,
+  step by step (the Simulator has no camera/mic, so nothing is proven
+  until then): plugging it in, signing/Developer Mode, pressing Run,
+  allowing permissions, doing a ~1-minute test call, and checking my
+  session at https://dashboard.crowdplay.ai. Do not just say the
+  implementation is complete.
 ```
 
 ## Integration (4 steps)

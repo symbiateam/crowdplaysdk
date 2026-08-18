@@ -95,10 +95,12 @@ What the app is about — read carefully:
   CrowdPlay.configure at launch, the background-upload hook, consent
   before joining).
 - When the code is done, run `await CrowdPlay.doctor()` as a development
-  check (not an app screen) and fix anything actionable. Then give me
-  exact step-by-step instructions (every click) to run the app on my
-  physical iPhone, including the free Apple signing setup and iPhone
-  Developer Mode.
+  check (not an app screen) and fix anything actionable. Then, as your
+  FINAL message — do not just say the implementation is complete — give
+  me exact step-by-step instructions (every click) to run the app on my
+  physical iPhone, including the free Apple signing setup, iPhone
+  Developer Mode, a ~1-minute test call, and where to see my session
+  afterwards (https://dashboard.crowdplay.ai).
 - My iPhone model and iOS version are: <e.g. iPhone 15, iOS 18>
 ```
 
