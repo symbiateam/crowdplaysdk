@@ -1,4 +1,4 @@
-# Getting started with Liva — no programming experience needed
+# Getting started with CrowdPlay — no programming experience needed
 
 This guide takes you from **nothing** to **a working iPhone app that
 records studio-quality video calls**, using an AI coding assistant to do
@@ -16,7 +16,7 @@ order and copy-paste carefully.
 | An iPhone (iPhone 15 or newer recommended) + its charging cable | Recording needs a real camera and microphone; the on-screen simulator has neither | — |
 | An Apple ID (the account you use for the App Store) | Signs the app so your iPhone will run it | Free |
 | An AI coding assistant | Writes and fixes all the code | Claude Code, Cursor, and others have free tiers or trials |
-| A Liva account and app key | Connects your app to Liva and lets you download your recordings | Free |
+| A CrowdPlay account and app key | Connects your app to CrowdPlay and lets you download your recordings | Free |
 
 ## Step 1 — Install Xcode (Apple's app-building tool)
 
@@ -44,7 +44,7 @@ don't have one, here is the Claude Code route:
    Sign in when it asks. You now have an AI assistant that can create
    files and build apps on your Mac.
 
-## Step 3 — Create your Liva account and get your app key
+## Step 3 — Create your CrowdPlay account and get your app key
 
 1. In your browser, go to **https://dashboard.crowdplay.ai**
 2. Click **Create account**, enter your email and a password.
@@ -63,24 +63,24 @@ the two `<...>` parts before sending:
 
 ```
 Build me a complete, minimal iOS app (SwiftUI, iOS 17+) for recorded
-video calls using the LivaKit SDK, and walk me through everything —
+video calls using the CrowdPlaySDK SDK, and walk me through everything —
 assume I have never used Xcode.
 
 - Create a new Xcode project for me (tell me every click), or generate
   the project yourself if you have tools for that.
-- Add the LivaKit Swift package from:
+- Add the CrowdPlaySDK Swift package from:
   https://github.com/symbiateam/crowdplaysdk
-  LivaKit is the ONLY package to add and `import LivaKit` the only
+  CrowdPlaySDK is the ONLY package to add and `import CrowdPlaySDK` the only
   import. Never add LiveKit or WebRTC yourself.
-- My Liva app key is: <PASTE YOUR liva_pk_… KEY HERE>
+- My CrowdPlay app key is: <PASTE YOUR liva_pk_… KEY HERE>
 - My app should have: a screen to type my name and a room code, the
   SDK's consent screen, a call screen showing everyone's video with
   mute / camera / leave buttons and a recording indicator, and an
   upload-progress view after the call.
-- Follow the LivaKit package's llms.txt exactly (permissions,
-  LivaKit.configure at launch, the background-upload hook, consent
+- Follow the CrowdPlaySDK package's llms.txt exactly (permissions,
+  CrowdPlay.configure at launch, the background-upload hook, consent
   before joining).
-- When the code is done, run `await LivaKit.doctor()` and fix anything
+- When the code is done, run `await CrowdPlay.doctor()` and fix anything
   it flags. Then give me exact step-by-step instructions (every click)
   to run the app on my physical iPhone, including the free Apple
   signing setup and iPhone Developer Mode.
@@ -146,7 +146,7 @@ you):
 
 1. Copy the exact error text (or screenshot) and paste it to your AI
    assistant. Say what step you were on.
-2. Ask the AI to run `await LivaKit.doctor()` — it checks the whole
+2. Ask the AI to run `await CrowdPlay.doctor()` — it checks the whole
    setup and every failing check says how to fix itself.
-3. Recording/upload questions the AI can't answer: contact Liva with
+3. Recording/upload questions the AI can't answer: contact CrowdPlay with
    your room code — every session's diagnostics are on our side too.

@@ -1,10 +1,10 @@
-# LivaKit
+# CrowdPlaySDK
 
 > Swift package for iOS (17+) that records studio-grade per-participant
 > audio (48 kHz / 24-bit WAV, unprocessed) and 1080p30 HEVC video LOCALLY
 > on each participant's device during a live video call, time-aligns every
 > participant's recording on a shared clock (millisecond accuracy), and
-> uploads everything to Liva automatically. The integrating app makes ~5
+> uploads everything to CrowdPlay automatically. The integrating app makes ~5
 > calls; capture, clock sync, consent evidence, upload, retry, and crash
 > recovery all happen inside the SDK.
 
@@ -27,28 +27,28 @@ Two media paths run at once and must never be confused:
 Consequences an agent must internalize:
 - A bad network makes the CALL ugly; the RECORDING stays perfect.
 - Each device records only its own participant. A 3-person call produces
-  3 uploads that Liva's backend aligns into one session.
+  3 uploads that CrowdPlay's backend aligns into one session.
 - Recording starts automatically on join() and stops on leave(). There is
   no separate record button to build.
 
 ## Hard rules (violations corrupt recordings or break builds)
 
-1. LivaKit is the ONLY package you add and `import LivaKit` the ONLY
-   import you write. LivaKit re-exports everything, including the LiveKit
+1. CrowdPlaySDK is the ONLY package you add and `import CrowdPlaySDK` the ONLY
+   import you write. CrowdPlaySDK re-exports everything, including the LiveKit
    call-UI types (SwiftUIVideoView, RemoteParticipant, Room). NEVER add,
    pin, import, or update LiveKit or WebRTC yourself — the correct version
-   ships inside LivaKit, matched to the capture engine. Adding your own
+   ships inside CrowdPlaySDK, matched to the capture engine. Adding your own
    causes duplicate-symbol build failures or, worse, a version mismatch
    that silently breaks capture.
 2. NEVER write AVAudioSession, AVAudioEngine, AVCaptureSession, or
-   AVAudioRecorder code in an app using LivaKit. The SDK owns the
+   AVAudioRecorder code in an app using CrowdPlaySDK. The SDK owns the
    microphone and the camera, and iOS allows only one owner. Touching them
    — even "harmlessly" setting a category — corrupts the recording.
 3. NEVER skip, fake, or auto-dismiss the consent step. join() requires a
    ConsentRecord (non-optional parameter — the compiler enforces it) and
    the user must actually SEE the consent text before you mint one.
    Constructing ConsentRecord(givenAt: Date()) without showing
-   LivaConsent.text to the user creates false legal evidence.
+   CrowdPlayConsent.text to the user creates false legal evidence.
 4. NEVER call the microphone/camera before Info.plist has
    NSMicrophoneUsageDescription and NSCameraUsageDescription. iOS kills
    the app instantly (not an exception you can catch).
@@ -60,8 +60,8 @@ Consequences an agent must internalize:
 ### Step 1 — add the package
 
 Xcode: File > Add Package Dependencies > paste this repository's URL >
-add product "LivaKit" to the app target. The package resolves a compiled
-binary (LivaKitCore) plus a thin source shim; no other setup.
+add product "CrowdPlaySDK" to the app target. The package resolves a compiled
+binary (CrowdPlaySDKCore) plus a thin source shim; no other setup.
 
 ### Step 2 — Info.plist
 
@@ -74,12 +74,12 @@ backgrounded and lets uploads finish after the call.
 
 ### Step 3 — configure at launch
 
-    import LivaKit
+    import CrowdPlaySDK
 
     // In App.init() or application(_:didFinishLaunchingWithOptions:):
-    LivaKit.configure(LivaConfiguration(
+    CrowdPlay.configure(CrowdPlayConfiguration(
         serverURL: URL(string: "https://dashboard.crowdplay.ai")!,
-        appKey: "<the builder's liva_pk_… key from the Liva dashboard>"
+        appKey: "<the builder's liva_pk_… key from the CrowdPlay dashboard>"
     ))
 
 configure() is also the crash-recovery hook: it resumes any uploads
@@ -87,7 +87,7 @@ interrupted by a crash, reboot, or dead battery. Call it exactly once,
 before any other SDK use (using the SDK unconfigured is a deliberate
 preconditionFailure with a clear message).
 
-Optional LivaConfiguration fields (defaults are hardware-proven; change
+Optional CrowdPlayConfiguration fields (defaults are hardware-proven; change
 only when asked to):
 
     uploadsEnabled: Bool = true          // false = recordings stay on device (dev only)
@@ -116,7 +116,7 @@ prettier live picture.
     func application(_ application: UIApplication,
                      handleEventsForBackgroundURLSession identifier: String,
                      completionHandler: @escaping () -> Void) {
-        LivaKit.handleBackgroundURLSessionEvents(completionHandler: completionHandler)
+        CrowdPlay.handleBackgroundURLSessionEvents(completionHandler: completionHandler)
     }
 
 Without this, iOS eventually stops delivering background-upload events to
@@ -127,11 +127,11 @@ the app and post-call uploads stall until next launch.
     @StateObject private var engine = CallEngine()   // one per app
 
     // The drop-in consent screen (recommended):
-    LivaConsentView { consent in
+    CrowdPlayConsentView { consent in
         Task { await engine.join(displayName: name, roomCode: code, consent: consent) }
     }
 
-    // OR custom consent UI — MUST display LivaConsent.text verbatim, then:
+    // OR custom consent UI — MUST display CrowdPlayConsent.text verbatim, then:
     let consent = ConsentRecord(givenAt: Date())
 
 roomCode is any string the participants share (like a meeting ID); everyone
@@ -139,7 +139,7 @@ who joins with the same code lands in the same call and the same aligned
 session. It is normalized internally (trimmed, filesystem-safe), so
 user-typed codes with stray spaces are fine.
 
-Tip: call LivaKit.warmUp() when the join screen appears — it pre-warms the
+Tip: call CrowdPlay.warmUp() when the join screen appears — it pre-warms the
 backend connection so joining is faster.
 
 ### Step 6 — build the call UI from engine state
@@ -201,7 +201,7 @@ engine.selectOutput(_:) (speaker vs automatic), engine.sessionMode.
 
 ### Step 8 — verify
 
-    let checks = await LivaKit.doctor()   // [DoctorCheck(id, passed, detail)]
+    let checks = await CrowdPlay.doctor()   // [DoctorCheck(id, passed, detail)]
 
 Doctor checks: configured, Info.plist strings, mic+camera permission,
 free disk, backend reachable, app key authenticates. Every failing check's
@@ -263,7 +263,7 @@ the same data via https://dashboard.crowdplay.ai (sign in, click, download).
 - App crashes instantly on join: missing Info.plist usage description
   (rule 4). doctor() catches this.
 
-Reference integration: Examples/LivaKitSample in this repository — a
+Reference integration: Examples/CrowdPlaySample in this repository — a
 complete consent -> join -> record -> upload app in ~150 lines. Prefer
 copying its structure over inventing one.
 Human-readable docs: README.md. Zero-experience walkthrough: GETTING_STARTED.md.

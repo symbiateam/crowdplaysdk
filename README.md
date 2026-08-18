@@ -1,7 +1,7 @@
-# LivaKit — lossless conversation capture for iOS
+# CrowdPlaySDK — lossless conversation capture for iOS
 
-LivaKit records **studio-grade, per-participant audio and video during live
-video calls** and delivers it to Liva, time-aligned across participants:
+CrowdPlaySDK records **studio-grade, per-participant audio and video during live
+video calls** and delivers it to CrowdPlay, time-aligned across participants:
 
 - Local capture per participant: **48 kHz / 24-bit raw WAV** (echo
   cancellation, gain control and noise suppression OFF on the recorded path)
@@ -13,7 +13,7 @@ video calls** and delivers it to Liva, time-aligned across participants:
 - Consent is **enforced in code**: recording cannot start without a
   `ConsentRecord`, and every session manifest carries the exact consent text
   the participant saw, hashed and timestamped.
-- Uploads to Liva S3 are automatic and resilient: they **start during the
+- Uploads to CrowdPlay S3 are automatic and resilient: they **start during the
   call** (each 30 s segment uploads as it closes, yielding to the call
   whenever connection quality drops), so the post-call wait is typically
   under a minute. Presigned, retried with backoff, resumed after
@@ -26,7 +26,7 @@ video calls** and delivers it to Liva, time-aligned across participants:
 
 **[GETTING_STARTED.md](GETTING_STARTED.md)** walks you from a blank Mac to
 a working recording app on your iPhone — installing the tools, creating
-your Liva account and key, and having an AI assistant build the entire app
+your CrowdPlay account and key, and having an AI assistant build the entire app
 for you. No programming experience assumed.
 
 ## Have an app already? Paste this to your AI agent
@@ -36,37 +36,37 @@ coding agent (Claude Code, Codex, Cursor, Replit, …), fill in the two
 blanks, and it will do the whole integration:
 
 ```
-Integrate the LivaKit SDK into my iOS app so every video-call session is
-recorded and delivered to Liva.
+Integrate the CrowdPlaySDK SDK into my iOS app so every video-call session is
+recorded and delivered to CrowdPlay.
 
-- Package: add the LivaKit Swift package from https://github.com/symbiateam/crowdplaysdk.
-  LivaKit is the ONLY package to add and `import LivaKit` the only import —
+- Package: add the CrowdPlaySDK Swift package from https://github.com/symbiateam/crowdplaysdk.
+  CrowdPlaySDK is the ONLY package to add and `import CrowdPlaySDK` the only import —
   it re-exports everything it needs (including LiveKit). Never add, pin, or
   import LiveKit or WebRTC yourself.
-- My Liva app key: <APP KEY from the Liva dashboard>
+- My CrowdPlay app key: <APP KEY from the CrowdPlay dashboard>
 - Follow the checklist in the package's llms.txt exactly: Info.plist
-  permissions, LivaKit.configure at launch, the background-upload hook, the
+  permissions, CrowdPlay.configure at launch, the background-upload hook, the
   consent screen before joining (required — join() will not compile without
   a ConsentRecord), and a join/leave UI.
-- Finish by running `await LivaKit.doctor()` and fixing anything it flags,
+- Finish by running `await CrowdPlay.doctor()` and fixing anything it flags,
   then tell me to test on a real iPhone (the Simulator has no camera/mic).
 ```
 
 ## Integration (4 steps)
 
 Requirements: iOS 17+, Swift 5.10+, a real device to test (camera/mic do not
-exist in the Simulator), and an **app key** from Liva.
+exist in the Simulator), and an **app key** from CrowdPlay.
 
-> **One package, one import.** LivaKit re-exports its internals: `import
-> LivaKit` also gives you the call-UI types (`SwiftUIVideoView`,
+> **One package, one import.** CrowdPlaySDK re-exports its internals: `import
+> CrowdPlaySDK` also gives you the call-UI types (`SwiftUIVideoView`,
 > `RemoteParticipant`, `Room`) for building a FaceTime-style screen. Never
 > add or pin LiveKit/WebRTC yourself — the right version ships inside
-> LivaKit, matched to the capture engine.
+> CrowdPlaySDK, matched to the capture engine.
 
 ### 1. Add the package
 
 Xcode → File → Add Package Dependencies → this repository URL → add
-**LivaKit** to your app target. (Or in `Package.swift` /
+**CrowdPlaySDK** to your app target. (Or in `Package.swift` /
 `project.yml`, depending on your setup.)
 
 ### 2. Declare permissions in Info.plist
@@ -80,10 +80,10 @@ UIBackgroundModes            = [audio]
 ### 3. Configure at launch, wire background uploads
 
 ```swift
-import LivaKit
+import CrowdPlaySDK
 
 // App/scene init — one call is the whole lifecycle hook:
-LivaKit.configure(LivaConfiguration(
+CrowdPlay.configure(CrowdPlayConfiguration(
     serverURL: URL(string: "https://dashboard.crowdplay.ai")!,
     appKey: "<your app key>"
 ))
@@ -92,7 +92,7 @@ LivaKit.configure(LivaConfiguration(
 func application(_: UIApplication,
                  handleEventsForBackgroundURLSession _: String,
                  completionHandler: @escaping () -> Void) {
-    LivaKit.handleBackgroundURLSessionEvents(completionHandler: completionHandler)
+    CrowdPlay.handleBackgroundURLSessionEvents(completionHandler: completionHandler)
 }
 ```
 
@@ -101,7 +101,7 @@ func application(_: UIApplication,
 ```swift
 // Show the SDK's drop-in consent screen (or your own UI that constructs
 // ConsentRecord(givenAt:) — the manifest evidence is identical):
-LivaConsentView { consent in
+CrowdPlayConsentView { consent in
     Task {
         await engine.join(displayName: name, roomCode: room, consent: consent)
     }
@@ -133,11 +133,11 @@ invisible.
 ## Verifying your integration
 
 ```swift
-let checks = await LivaKit.doctor()
+let checks = await CrowdPlay.doctor()
 ```
 
 Doctor verifies: SDK configured, Info.plist permission strings present,
-mic/camera permission granted, free disk, Liva backend reachable, app key
+mic/camera permission granted, free disk, CrowdPlay backend reachable, app key
 authenticates. Every failing check names its own fix.
 
 Then record a 1-minute test session on a real device and confirm the upload
@@ -176,7 +176,7 @@ list and download sessions recorded with your own key.
 - Participants should wear **wired or closed-back headphones**; a loudspeaker
   pipes the far end's voice into the local mic and contaminates the track.
   The SDK surfaces this live (`engine.crossTalkRisk`).
-- `LivaConfiguration` exposes the tuning knobs (cellular video, delete-after-
+- `CrowdPlayConfiguration` exposes the tuning knobs (cellular video, delete-after-
   upload, disk floor); the defaults are the configuration proven on hardware.
 - **Slow join + glitchy first seconds = bad radio, not a bug.** On a poor
   network (especially congested 2.4 GHz WiFi with Bluetooth headphones —
@@ -190,6 +190,6 @@ list and download sessions recorded with your own key.
 
 ## Example
 
-`../Examples/LivaKitSample` is a complete integration in ~150 lines: consent
+`../Examples/CrowdPlaySample` is a complete integration in ~150 lines: consent
 screen → join form → REC indicator → leave, plus a doctor button. Build it
-with `xcodegen generate && open LivaKitSample.xcodeproj`.
+with `xcodegen generate && open CrowdPlaySample.xcodeproj`.

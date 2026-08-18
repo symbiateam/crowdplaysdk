@@ -1,0 +1,36 @@
+name: CrowdPlaySample
+options:
+  deploymentTarget:
+    iOS: "17.0"
+  # Regenerate with: xcodegen generate (run from this directory)
+
+# The M6 gate: this app depends ONLY on the CrowdPlaySDK package — if it builds
+# and records a verified session, the SDK is genuinely self-contained.
+packages:
+  CrowdPlaySDK:
+    path: ../..
+
+targets:
+  CrowdPlaySample:
+    type: application
+    platform: iOS
+    sources:
+      - Sources
+    dependencies:
+      - package: CrowdPlaySDK
+        product: CrowdPlaySDK
+    info:
+      path: Sources/Info.plist
+      properties:
+        NSCameraUsageDescription: "Records your camera during sessions."
+        NSMicrophoneUsageDescription: "Records your microphone during sessions."
+        UILaunchScreen: {}
+        UIBackgroundModes: [audio]
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.symbia.livakitsample
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: K8D7XFC993
+        TARGETED_DEVICE_FAMILY: "1"
+        SWIFT_VERSION: "5.10"
