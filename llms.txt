@@ -94,6 +94,9 @@ only when asked to):
     deleteAfterUpload: Bool = true       // local files removed only AFTER S3 acknowledges
     videoUploadsOnCellular: Bool = false // audio+manifests always upload on any network;
                                          // video (~2 GB/session) waits for WiFi unless true
+    uploadDuringCall: Bool = true        // segments upload WHILE recording (one at a
+                                         // time, auto-paused when call quality drops),
+                                         // so the post-call wait is ~the final segment
     requiredFreeDiskBytes: Int64 = 8 GB  // join() refuses below this
     remoteAudioGain: Double = 1.0        // playout gain; >1.0 increases cross-talk bleed
     logSessionsTreeAtLaunch: Bool = false
@@ -249,6 +252,11 @@ the same data via https://dashboard.crowdplay.ai (sign in, click, download).
   from the home screen when evaluating quality.
 - "unauthorized"/401 from the backend: the app key is wrong — sign in at
   https://dashboard.crowdplay.ai, reveal the key, and copy it again.
+- Uploads crawling on an otherwise-fine network: check for a VPN, iCloud
+  Private Relay, or Low Data Mode on the phone. A VPN can cut upload
+  throughput 100×, and Low Data Mode marks WiFi "expensive," which makes
+  video wait forever for real WiFi. Verified in the field: turning the
+  VPN off took one phone from ~1 Mbps to full line rate.
 - Build error "duplicate symbol"/"multiple commands produce" mentioning
   LiveKit or WebRTC: the app added its own LiveKit dependency — remove it
   (rule 1).

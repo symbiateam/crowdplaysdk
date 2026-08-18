@@ -13,9 +13,12 @@ video calls** and delivers it to Liva, time-aligned across participants:
 - Consent is **enforced in code**: recording cannot start without a
   `ConsentRecord`, and every session manifest carries the exact consent text
   the participant saw, hashed and timestamped.
-- Uploads to Liva S3 are automatic and resilient: presigned, retried with
-  backoff, resumed after crashes/reboots, buffered offline. Audio and
-  manifests upload on any network; video waits for WiFi by default.
+- Uploads to Liva S3 are automatic and resilient: they **start during the
+  call** (each 30 s segment uploads as it closes, yielding to the call
+  whenever connection quality drops), so the post-call wait is typically
+  under a minute. Presigned, retried with backoff, resumed after
+  crashes/reboots, buffered offline. Audio and manifests upload on any
+  network; video waits for WiFi by default.
 - Interruptions (calls, Siri, route changes, reconnects, airplane mode) are
   survived and logged with timestamps, never papered over.
 

@@ -21,8 +21,8 @@ let package = Package(
     targets: [
         .binaryTarget(
             name: "LivaKitCore",
-            url: "https://github.com/symbiateam/crowdplaysdk/releases/download/0.1.4/LivaKitCore.xcframework.zip",
-            checksum: "c7b5bb7c31176a47f4e70a61d9439722ca40df7c358d853a8250826da89137c9"
+            url: "https://github.com/symbiateam/crowdplaysdk/releases/download/0.1.5/LivaKitCore.xcframework.zip",
+            checksum: "1ab02b68007c655e99e5876db223e349162798c46493c7b0003588ddff6d4e3b"
         ),
         .target(
             name: "LivaKit",
