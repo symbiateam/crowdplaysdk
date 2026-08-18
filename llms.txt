@@ -202,8 +202,12 @@ engine.selectOutput(_:) (speaker vs automatic), engine.sessionMode.
 
 Doctor checks: configured, Info.plist strings, mic+camera permission,
 free disk, backend reachable, app key authenticates. Every failing check's
-detail names its own fix. Fix everything, then have the human record ~1
-minute on a real iPhone and confirm the upload reaches complete.
+detail names its own fix. NOTE: on a fresh install the "permissions" check
+reports "not requested yet — NORMAL"; that is the expected pre-first-run
+state (iOS prompts at first join), not an integration bug — do not hunt
+for one. Only a DENIED state needs action (the user re-enables in
+Settings). Fix everything actionable, then have the human record ~1 minute
+on a real iPhone and confirm the upload reaches complete.
 
 ## Accessing recordings (no AWS, no SDK — plain HTTPS)
 
@@ -243,9 +247,8 @@ the same data via https://dashboard.crowdplay.ai (sign in, click, download).
   the Xcode debugger attached — NOT an integration bug. Capture self-heals
   once the link settles. Advise: better network, wired headphones, launch
   from the home screen when evaluating quality.
-- "unauthorized"/401 from the backend: the app key is wrong or was
-  regenerated — copy it again from the dashboard. Keys are shown once at
-  creation; only a hash is stored.
+- "unauthorized"/401 from the backend: the app key is wrong — sign in at
+  https://dashboard.crowdplay.ai, reveal the key, and copy it again.
 - Build error "duplicate symbol"/"multiple commands produce" mentioning
   LiveKit or WebRTC: the app added its own LiveKit dependency — remove it
   (rule 1).

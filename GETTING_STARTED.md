@@ -49,10 +49,10 @@ don't have one, here is the Claude Code route:
 1. In your browser, go to **https://dashboard.crowdplay.ai**
 2. Click **Create account**, enter your email and a password.
 3. Click **Generate key**. Type your company or project name and confirm.
-4. A key that looks like `liva_pk_yourname_abc123…` appears **exactly
-   once**. Click **Copy** and paste it somewhere safe (Notes, a password
-   manager). You will paste it into the AI's instructions in the next
-   step. If you ever lose it, contact Liva — it cannot be shown again.
+4. A key that looks like `liva_pk_yourname_abc123…` is created and copied
+   for you. You will paste it into the AI's instructions in the next step.
+   Don't worry about losing it — you can view and copy your keys in the
+   dashboard any time (up to 5 keys per account).
 
 This dashboard is also where your recordings will appear later.
 
