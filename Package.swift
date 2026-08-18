@@ -1,17 +1,20 @@
 // swift-tools-version: 5.10
-// LivaKit — Liva's capture SDK for iOS.
+// CrowdPlaySDK — CrowdPlay's capture SDK for iOS.
 //
-// The engine ships as a compiled binary (LivaKitCore.xcframework, attached
-// to this repo's releases); this manifest wraps it so `import LivaKit` is
-// the entire integration. LiveKit and swift-atomics are open-source
-// dependencies fetched from their own repositories — the pins are exact
-// because the capture engine is verified against these versions.
+// The engine ships as a compiled binary (CrowdPlaySDKCore.xcframework,
+// attached to this repo's releases); this manifest wraps it so
+// `import CrowdPlaySDK` is the entire integration. LiveKit and
+// swift-atomics are open-source dependencies fetched from their own
+// repositories — the pins are exact because the capture engine is verified
+// against these versions. The `LivaKit` product is a legacy alias from the
+// 0.1.x era; new integrations use CrowdPlaySDK.
 import PackageDescription
 
 let package = Package(
-    name: "LivaKit",
+    name: "CrowdPlaySDK",
     platforms: [.iOS(.v17)],
     products: [
+        .library(name: "CrowdPlaySDK", targets: ["CrowdPlaySDK"]),
         .library(name: "LivaKit", targets: ["LivaKit"]),
     ],
     dependencies: [
@@ -20,17 +23,22 @@ let package = Package(
     ],
     targets: [
         .binaryTarget(
-            name: "LivaKitCore",
-            url: "https://github.com/symbiateam/crowdplaysdk/releases/download/0.1.5/LivaKitCore.xcframework.zip",
-            checksum: "1ab02b68007c655e99e5876db223e349162798c46493c7b0003588ddff6d4e3b"
+            name: "CrowdPlaySDKCore",
+            url: "https://github.com/symbiateam/crowdplaysdk/releases/download/0.2.0/CrowdPlaySDKCore.xcframework.zip",
+            checksum: "0000000000000000000000000000000000000000000000000000000000000000"
         ),
         .target(
-            name: "LivaKit",
+            name: "CrowdPlaySDK",
             dependencies: [
-                "LivaKitCore",
+                "CrowdPlaySDKCore",
                 .product(name: "LiveKit", package: "client-sdk-swift"),
                 .product(name: "Atomics", package: "swift-atomics"),
             ],
+            path: "Sources/CrowdPlaySDK"
+        ),
+        .target(
+            name: "LivaKit",
+            dependencies: ["CrowdPlaySDK"],
             path: "Sources/LivaKit"
         ),
     ]

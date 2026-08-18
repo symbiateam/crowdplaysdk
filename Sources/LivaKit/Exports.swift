@@ -1,4 +1,3 @@
-// `import LivaKit` is the whole integration: this shim re-exports the
-// compiled engine and the call-UI types it builds on.
-@_exported import LivaKitCore
-@_exported import LiveKit
+// LEGACY shim (D-075 rename): apps written against 0.1.x keep compiling
+// with `import LivaKit`. New integrations use `import CrowdPlaySDK`.
+@_exported import CrowdPlaySDK
