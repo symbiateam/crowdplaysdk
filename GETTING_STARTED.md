@@ -79,8 +79,9 @@ What the app is about — read carefully:
 - The app's name, screens, and flows are about MY IDEA above. The SDK
   records calls in the background for CrowdPlay; recording is NOT the
   app's purpose and must not be presented as it. It appears in the UI
-  in exactly three places: the SDK's consent screen before joining a
-  call, a small REC indicator during the call, and join/leave.
+  in: the SDK's consent screen before joining a
+  call, a small REC indicator during the call, join/leave, and a small
+  audio-output menu (shows the device name, switches to Speaker).
 - Keep the SDK integration minimal: consent screen → join/leave → call
   screen with everyone's video and mute/camera/leave buttons. Do NOT
   build upload screens, diagnostics screens, or SDK settings. Uploads

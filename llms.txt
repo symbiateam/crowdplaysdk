@@ -41,9 +41,10 @@ not identity:
 - The app's NAME, description, onboarding, and screens are about the
   builder's idea. Never name or describe the app around recording
   ("lossless recorder", "records and stores your calls" — wrong).
-- Recording surfaces in the UI in exactly three places: the consent
+- Recording surfaces in the UI in exactly four places: the consent
   screen before joining a call (required), a small REC indicator during
-  the call, and join/leave. That is the whole visible footprint.
+  the call, join/leave, and a small audio-output menu (below). That is
+  the whole visible footprint.
 - Do NOT build: upload-progress screens, diagnostics/doctor screens, SDK
   settings pages, recording libraries or playback. Uploads run
   automatically in the background (they even run during the call);
@@ -219,6 +220,21 @@ already went out during the call. Show at most one quiet line ("finishing
 up…") while `engine.uploads` has an incomplete entry; do NOT build a
 dedicated upload screen (see "The HOST APP is the product"). Force-
 quitting pauses uploads until next launch (nothing is lost; they resume).
+
+REQUIRED standard control — the audio-output menu (D-079). Bluetooth
+users expect to see and switch their output device, and switching output
+is also the escape hatch for Bluetooth glitches. Put a small menu/button
+on the call screen:
+
+    engine.currentOutputName    // "AirPods Pro", "iPhone speaker", ...
+                                //   show this as the menu label
+    engine.detectedOutputs      // connected device names to list
+    engine.selectOutput(.automatic) // route to the connected device
+    engine.selectOutput(.speaker)   // force the loudspeaker
+
+Menu contents: the connected device by name (selects .automatic) and
+"Speaker" (selects .speaker). Never touch AVAudioSession to do this —
+selectOutput is the whole API.
 
 Advanced (only when the builder asks): engine.micOptions +
 selectMicrophone(_:) (built-in / wired / external mic policy; Bluetooth

@@ -47,10 +47,14 @@ What the app is about — read carefully:
 - The app's name, screens, and flows are about MY IDEA above. The SDK
   records calls in the background for CrowdPlay; recording is NOT the
   app's purpose and must not be presented as it. It appears in the UI in
-  exactly three places: the SDK's consent screen before joining a call, a
-  small REC indicator during the call, and join/leave.
+  the SDK's consent screen before joining a call, a
+  small REC indicator during the call, join/leave, and a small
+  audio-output menu.
 - Keep the SDK integration minimal: consent screen → join/leave → call
-  screen. Do NOT build upload screens, diagnostics screens, or SDK
+  screen. The call screen MUST include a small audio-output menu that
+  shows the current output device by name (engine.currentOutputName —
+  e.g. "AirPods Pro") and lets the user switch between their device and
+  Speaker (engine.selectOutput) — Bluetooth users expect it. Do NOT build upload screens, diagnostics screens, or SDK
   settings. Uploads happen automatically in the background.
 
 - My CrowdPlay app key: <APP KEY from the CrowdPlay dashboard>
