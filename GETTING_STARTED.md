@@ -48,15 +48,22 @@ don't have one, here is the Claude Code route:
 
 1. In your browser, go to **https://dashboard.crowdplay.ai**
 2. Click **Create account**, enter your email and a password.
-3. Click **Generate key**. Type your project's name and, in "What are you
-   building?", a one-line description of your app idea (for example: *a
-   tutoring app where students and tutors meet over video*).
-4. A key that looks like `liva_pk_yourname_abc123…` is created and copied
-   for you. Don't worry about losing it — you can view and copy your keys
-   in the dashboard any time (up to 5 keys per account).
-5. Best shortcut: press **Copy agent prompt** next to your key — it gives
-   you the entire Step 4 instruction below with your key and your app
-   idea already filled in.
+3. Click **Create your app**. The short wizard asks three things: your app
+   idea in one sentence (for example: *a tutoring app where students and
+   tutors meet over video*), whether your calls are **video + audio or
+   audio-only**, and **what you are building with** — an app builder like
+   Rork, Bitrig, or 10x, a terminal agent like Claude Code or Cursor, or
+   the Claude/ChatGPT desktop apps.
+4. A key that looks like `liva_pk_yourname_abc123…` is created. Don't
+   worry about losing it — you can view and copy your keys in the
+   dashboard any time (up to 5 keys per account).
+5. Press **Copy agent prompt** — the instruction is TAILORED to the tool
+   you picked, with your key and idea filled in. Paste it into your agent
+   and you're building.
+6. Your key now has a **Setup checklist** on the dashboard. Tick the
+   manual steps as you do them; the proof steps turn green by themselves —
+   the health check flips when your app's self-test runs, and "Record on a
+   real iPhone" flips when your first session uploads.
 
 This dashboard is also where your recordings will appear later.
 

@@ -115,6 +115,11 @@ preconditionFailure with a clear message).
 Optional CrowdPlayConfiguration fields (defaults are hardware-proven; change
 only when asked to):
 
+    audioOnly: Bool = false              // AUDIO-ONLY app: the camera is never touched —
+                                         // no camera permission, no video captured or
+                                         // uploaded, voice-only calls. Skip
+                                         // NSCameraUsageDescription and all video UI.
+                                         // The audio path is identical. (0.3.0+)
     uploadsEnabled: Bool = true          // false = recordings stay on device (dev only)
     deleteAfterUpload: Bool = true       // local files removed only AFTER S3 acknowledges
     videoUploadsOnCellular: Bool = false // audio+manifests always upload on any network;
@@ -245,13 +250,22 @@ engine.selectOutput(_:) (speaker vs automatic), engine.sessionMode.
 
     let checks = await CrowdPlay.doctor()   // [DoctorCheck(id, passed, detail)]
 
-Doctor checks: configured, Info.plist strings, mic+camera permission,
+Doctor checks: platform (SIMULATOR detection — see below), configured,
+Info.plist strings, mic+camera permission (mic only for audioOnly apps),
 free disk, backend reachable, app key authenticates. Every failing check's
 detail names its own fix. NOTE: on a fresh install the "permissions" check
 reports "not requested yet — NORMAL"; that is the expected pre-first-run
 state (iOS prompts at first join), not an integration bug — do not hunt
 for one. Only a DENIED state needs action (the user re-enables in
 Settings). Fix everything actionable, then move to Step 9.
+
+SIMULATOR detection (0.3.0+): on any Simulator — including CLOUD previews
+like Rork's streamed preview — doctor()'s "platform" check fails and
+join() returns a clear failure instead of a cryptic audio-engine error.
+This is expected, not a bug to debug: there is no microphone there. Every
+other screen can be validated in a simulator; calls and recording cannot.
+A doctor() run also flips the "health check" step on the builder's
+dashboard checklist automatically (the server observes it).
 
 ### Step 9 — hand off to the builder (REQUIRED final message)
 

@@ -106,10 +106,14 @@ UIBackgroundModes            = [audio]
 import CrowdPlaySDK
 
 // App/scene init — one call is the whole lifecycle hook:
-CrowdPlay.configure(CrowdPlayConfiguration(
+var config = CrowdPlayConfiguration(
     serverURL: URL(string: "https://dashboard.crowdplay.ai")!,
     appKey: "<your app key>"
-))
+)
+// Voice-only app? The camera is never touched (no camera permission,
+// no video captured or uploaded):
+// config.audioOnly = true
+CrowdPlay.configure(config)
 
 // In your UIApplicationDelegate:
 func application(_: UIApplication,
