@@ -303,8 +303,18 @@ How it works — all server-side, nothing to wire up:
   apply from the next call — never ship persona text in the app.
 - Every conversation is recorded and transcribed by the platform
   automatically (both sides, timestamped).
-- Pure AI-chat apps should set `audioOnly: true` (no camera at all).
-  Apps mixing human calls and the AI keep video for humans.
+- RECOMMENDED: voice-AI apps should be AUDIO-ONLY (`audioOnly: true` —
+  no camera permission, no video anywhere). A camera adds nothing to
+  talking with an AI. Keep video only when the app ALSO has calls
+  between people; the AI screen itself still follows the layout below.
+
+The AI conversation screen — the approved standard layout:
+- The animated visual front and center, large — it IS the screen.
+- NO self camera preview and NO video tiles on this screen, ever.
+- Around it, only: the AI's name/persona, a small REC indicator, a
+  leave button, and the small audio-output menu. One calm screen, one
+  living visual, nothing competing with it (the SDK's sample app,
+  Examples/CrowdPlaySample, is this exact interface).
 
 What the app builds — the AI's on-screen presence:
 - The AI publishes AUDIO ONLY. Never render it as a camera tile, an
