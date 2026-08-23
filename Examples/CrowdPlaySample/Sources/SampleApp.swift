@@ -107,6 +107,18 @@ struct InCallView: View {
             // CrowdPlayVoiceStyle, or observe CrowdPlayVoiceMonitor and draw
             // your own.
             CrowdPlayVoiceView(engine: engine)
+            // Live captions: each line as it is spoken (agent broadcasts
+            // over the data channel). Speech-bubble / subtitle building block.
+            if let caption = engine.latestCaption {
+                Text("\(caption.role == "agent" ? "AI" : "You"): \(caption.text)")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(3)
+                    .padding(.horizontal)
+                    .transition(.opacity)
+                    .id(caption.id)
+            }
             if engine.isRecording {
                 TimelineView(.periodic(from: .now, by: 1)) { _ in
                     let snapshot = engine.recordingSnapshot()

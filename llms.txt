@@ -320,15 +320,22 @@ What the app builds — the AI's on-screen presence:
 - The AI publishes AUDIO ONLY. Never render it as a camera tile, an
   empty box, or a static image; never count it as a generic user in
   participant counts. Detect it with `participant.isVoiceAgent`.
-- Default visual: `CrowdPlayVoiceView(engine: engine)` — the standard
-  animated orb (breathes idle, rings with the user's voice, pulses with
-  the AI's). Style via `CrowdPlayVoiceStyle(agentColor:listeningColor:
-  idleColor:size:)`.
-- Custom character (the orb is only a default): drive ANY visual from
-  `CrowdPlayVoiceMonitor` — an ObservableObject publishing `phase`
-  (.connecting/.idle/.listening/.speaking) and `energy` (smoothed 0…1
-  loudness). Example, an illustrated tutor that reacts to the
-  conversation:
+- The visual is a MENU, zero-effort to fully custom (0.3.4+ for 2-5):
+  1. Orb (default): `CrowdPlayVoiceView(engine: engine)` — breathes
+     idle, rings with the user's voice, pulses with the AI's. Style via
+     `CrowdPlayVoiceStyle(variant:agentColor:listeningColor:idleColor:size:)`.
+  2. Bars: `CrowdPlayVoiceStyle(variant: .bars)` — equalizer look, good
+     under other content (scoreboards, question cards, quizzes).
+  3. Halo around the app's own art: `CrowdPlayVoiceView(engine: engine)
+     { Image("mascot") }` — animated ring + glow around any view
+     (portrait, logo, character).
+  4. Make ANY view alive: `yourView.voiceReactive(monitor)` — breathing,
+     pulse and speech glow on the app's own art in one line.
+  5. Fully custom (best for characters): drive ANY visual from
+     `CrowdPlayVoiceMonitor` — an ObservableObject publishing `phase`
+     (.connecting/.idle/.listening/.speaking) and `energy` (smoothed 0…1
+     loudness). Example, an illustrated tutor that reacts to the
+     conversation:
 
       struct TutorAvatar: View {
           @StateObject private var voice: CrowdPlayVoiceMonitor
@@ -344,6 +351,11 @@ What the app builds — the AI's on-screen presence:
 
   Any art pipeline works the same way (SwiftUI shapes, Lottie, Rive,
   sprite frames) — bind mouth/pose/glow to `phase` + `energy`.
+- Live captions (0.3.4+): each line the AI and the user say is streamed
+  as it is spoken — observe `engine.latestCaption` (`role` "agent" or
+  "user", `text`). For speech bubbles, subtitles, language-learning
+  corrections. Optional UI; the full timestamped transcript is always
+  delivered with the session regardless.
 - Testing: the AI appears only on a real iPhone (simulators have no
   microphone). Join a room, wait ~3 s, it speaks first.
 
