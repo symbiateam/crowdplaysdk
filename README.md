@@ -56,6 +56,12 @@ What the app is about — read carefully:
   e.g. "AirPods Pro") and lets the user switch between their device and
   Speaker (engine.selectOutput) — Bluetooth users expect it. Do NOT build upload screens, diagnostics screens, or SDK
   settings. Uploads happen automatically in the background.
+- Voice-AI apps: render the AI participant with `CrowdPlayVoiceView(engine:)`
+  — the standard animated orb (breathes idle, rings while the user talks,
+  pulses while the AI talks). The agent publishes no video, so a camera
+  tile would just be dead black. Style it via `CrowdPlayVoiceStyle`, or
+  observe `CrowdPlayVoiceMonitor` and draw your own visual. Agent
+  detection: `participant.isVoiceAgent`.
 
 - My CrowdPlay app key: <APP KEY from the CrowdPlay dashboard>
 - CrowdPlaySDK is the ONLY package to add and `import CrowdPlaySDK` the

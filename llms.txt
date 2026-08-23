@@ -45,6 +45,15 @@ not identity:
   screen before joining a call (required), a small REC indicator during
   the call, join/leave, and a small audio-output menu (below). That is
   the whole visible footprint.
+- Voice-AI apps: when a CrowdPlay voice agent is part of the app, the AI
+  participant publishes NO video — never show it as a camera tile or an
+  empty box. Render it with CrowdPlayVoiceView(engine:) — the standard
+  animated orb: it breathes while idle, rings while the user talks, and
+  pulses while the AI talks, so the agent always feels alive and
+  interactive. Colors and size are customizable via CrowdPlayVoiceStyle;
+  an app that wants an entirely different visual can observe
+  CrowdPlayVoiceMonitor (phase + smoothed 0…1 energy) and draw its own.
+  Detect the agent in participant lists with participant.isVoiceAgent.
 - Do NOT build: upload-progress screens, diagnostics/doctor screens, SDK
   settings pages, recording libraries or playback. Uploads run
   automatically in the background (they even run during the call);

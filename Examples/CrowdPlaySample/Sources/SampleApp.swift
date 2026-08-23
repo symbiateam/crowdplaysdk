@@ -102,6 +102,11 @@ struct InCallView: View {
 
     var body: some View {
         VStack(spacing: 24) {
+            // The standard voice-AI visual: breathes while idle, rings while
+            // you talk, pulses while the AI talks. Style it via
+            // CrowdPlayVoiceStyle, or observe CrowdPlayVoiceMonitor and draw
+            // your own.
+            CrowdPlayVoiceView(engine: engine)
             if engine.isRecording {
                 TimelineView(.periodic(from: .now, by: 1)) { _ in
                     let snapshot = engine.recordingSnapshot()
