@@ -45,15 +45,8 @@ not identity:
   screen before joining a call (required), a small REC indicator during
   the call, join/leave, and a small audio-output menu (below). That is
   the whole visible footprint.
-- Voice-AI apps: when a CrowdPlay voice agent is part of the app, the AI
-  participant publishes NO video — never show it as a camera tile or an
-  empty box. Render it with CrowdPlayVoiceView(engine:) — the standard
-  animated orb: it breathes while idle, rings while the user talks, and
-  pulses while the AI talks, so the agent always feels alive and
-  interactive. Colors and size are customizable via CrowdPlayVoiceStyle;
-  an app that wants an entirely different visual can observe
-  CrowdPlayVoiceMonitor (phase + smoothed 0…1 energy) and draw its own.
-  Detect the agent in participant lists with participant.isVoiceAgent.
+- Voice-AI apps add ONE more surface: the AI participant's visual (the
+  orb, or a custom character) — see "The voice AI" section below.
 - Do NOT build: upload-progress screens, diagnostics/doctor screens, SDK
   settings pages, recording libraries or playback. Uploads run
   automatically in the background (they even run during the call);
@@ -294,6 +287,55 @@ walk the builder through their next step, explicitly:
    code, talk for about a minute, then leave.
 4. Check https://dashboard.crowdplay.ai — the session appears there with
    its recording; that is the proof the integration works end to end.
+
+## The voice AI (apps with the Voice AI switch enabled on the dashboard)
+
+How it works — all server-side, nothing to wire up:
+- When any user joins a call in a voice-AI-enabled app, CrowdPlay's
+  servers put a live AI participant into the room within ~3 seconds. It
+  joins under the identity convention `agent-<8hex>` with name `agent`,
+  greets the user, and holds a real spoken conversation (speech-to-speech:
+  it hears the user directly and answers with natural voice and timing;
+  the user can interrupt it mid-sentence).
+- The app writes ZERO AI code. No model API calls, no AI keys in the app,
+  no chat backend, no STT/TTS. The AI's persona (system prompt), voice,
+  and model are configured by the BUILDER on the CrowdPlay dashboard and
+  apply from the next call — never ship persona text in the app.
+- Every conversation is recorded and transcribed by the platform
+  automatically (both sides, timestamped).
+- Pure AI-chat apps should set `audioOnly: true` (no camera at all).
+  Apps mixing human calls and the AI keep video for humans.
+
+What the app builds — the AI's on-screen presence:
+- The AI publishes AUDIO ONLY. Never render it as a camera tile, an
+  empty box, or a static image; never count it as a generic user in
+  participant counts. Detect it with `participant.isVoiceAgent`.
+- Default visual: `CrowdPlayVoiceView(engine: engine)` — the standard
+  animated orb (breathes idle, rings with the user's voice, pulses with
+  the AI's). Style via `CrowdPlayVoiceStyle(agentColor:listeningColor:
+  idleColor:size:)`.
+- Custom character (the orb is only a default): drive ANY visual from
+  `CrowdPlayVoiceMonitor` — an ObservableObject publishing `phase`
+  (.connecting/.idle/.listening/.speaking) and `energy` (smoothed 0…1
+  loudness). Example, an illustrated tutor that reacts to the
+  conversation:
+
+      struct TutorAvatar: View {
+          @StateObject private var voice: CrowdPlayVoiceMonitor
+          init(engine: CallEngine) {
+              _voice = StateObject(wrappedValue: CrowdPlayVoiceMonitor(engine: engine))
+          }
+          var body: some View {
+              CharacterView(                       // the app's own art
+                  mouthOpen: voice.phase == .speaking ? voice.energy : 0,
+                  pose: voice.phase == .listening ? .leanIn : .idleBlink)
+          }
+      }
+
+  Any art pipeline works the same way (SwiftUI shapes, Lottie, Rive,
+  sprite frames) — bind mouth/pose/glow to `phase` + `energy`.
+- Testing: the AI appears only on a real iPhone (simulators have no
+  microphone). Join a room, wait ~3 s, it speaks first.
 
 ## Accessing recordings (no AWS, no SDK — plain HTTPS)
 
