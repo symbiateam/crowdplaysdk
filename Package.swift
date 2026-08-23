@@ -24,8 +24,8 @@ let package = Package(
     targets: [
         .binaryTarget(
             name: "CrowdPlaySDKCore",
-            url: "https://github.com/symbiateam/crowdplaysdk/releases/download/0.3.1/CrowdPlaySDKCore.xcframework.zip",
-            checksum: "ab9848edca30121b438ce508d5b29cb889aa725609609c7654d599fd47d0bdc1"
+            url: "https://github.com/symbiateam/crowdplaysdk/releases/download/0.3.2/CrowdPlaySDKCore.xcframework.zip",
+            checksum: "550fe5547e0f999a583a34b5ec689b14f75e404cc379434b020099bbb14ba141"
         ),
         .target(
             name: "CrowdPlaySDK",
