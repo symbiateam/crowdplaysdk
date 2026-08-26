@@ -75,10 +75,16 @@ What the app is about — read carefully:
   check (not an app screen) and fix anything actionable.
 - Your FINAL message must walk me through testing on my real iPhone,
   step by step (the Simulator has no camera/mic, so nothing is proven
-  until then): plugging it in, signing/Developer Mode, pressing Run,
-  allowing permissions, doing a ~1-minute test call, and checking my
-  session at https://dashboard.crowdplay.ai. Do not just say the
-  implementation is complete.
+  until then): plugging it in, Developer Mode, pressing Run, allowing
+  permissions, doing a ~1-minute test call, and checking my session at
+  https://dashboard.crowdplay.ai. Do not just say the implementation is
+  complete.
+- Before that final message, set up signing YOURSELF (automatic
+  signing, my Team ID detected with `defaults read com.apple.dt.Xcode
+  IDEProvisioningTeams` or `security find-identity -v -p codesigning`;
+  if there is none, walk me through signing into Xcode first) and open
+  the project in Xcode for me (`open <AppName>.xcodeproj`). Do not send
+  me to find the file or to Signing & Capabilities.
 ```
 
 ## Integration (4 steps)
@@ -119,6 +125,9 @@ var config = CrowdPlayConfiguration(
 // Voice-only app? The camera is never touched (no camera permission,
 // no video captured or uploaded):
 // config.audioOnly = true
+// Music plays on the device during calls (shared listening)? Keep other
+// apps' audio running instead of pausing it at join (0.4.0+):
+// config.otherAudio = .mix
 CrowdPlay.configure(config)
 
 // In your UIApplicationDelegate:
@@ -137,6 +146,8 @@ func application(_: UIApplication,
 CrowdPlayConsentView { consent in
     Task {
         await engine.join(displayName: name, roomCode: room, consent: consent)
+        // Voice-AI apps (0.4.0+) may add per-session overrides:
+        //   agent: CrowdPlayAgentOptions(voice: "Aoede", context: "what the app knows about this user")
     }
 }
 ```
@@ -211,6 +222,12 @@ list and download sessions recorded with your own key.
   The SDK surfaces this live (`engine.crossTalkRisk`).
 - `CrowdPlayConfiguration` exposes the tuning knobs (cellular video, delete-after-
   upload, disk floor); the defaults are the configuration proven on hardware.
+- **Music during calls** (0.4.0+): `config.otherAudio = .mix` keeps Apple
+  Music / Spotify playing through the call; by default a call is exclusive
+  and pauses them. Music stays on the device (each phone plays its own
+  copy), and listeners must wear headphones or it lands in the recording.
+  `engine.room` doubles as the app's real-time data channel for shared
+  state such as a queue or whose turn it is — see `llms.txt`.
 - **Slow join + glitchy first seconds = bad radio, not a bug.** On a poor
   network (especially congested 2.4 GHz WiFi with Bluetooth headphones —
   they share the antenna), the call takes longer to connect and iOS's audio

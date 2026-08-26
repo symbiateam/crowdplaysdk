@@ -126,6 +126,14 @@ only when asked to):
     deleteAfterUpload: Bool = true       // local files removed only AFTER S3 acknowledges
     videoUploadsOnCellular: Bool = false // audio+manifests always upload on any network;
                                          // video (~2 GB/session) waits for WiFi unless true
+    otherAudio: OtherAudioPolicy = .interrupt
+                                         // .interrupt: exclusive call session, other
+                                         // apps' audio pauses at join (classic call).
+                                         // .mix: Apple Music / Spotify / podcasts keep
+                                         // playing through the call (music apps,
+                                         // shared listening). .mixDucked: same, other
+                                         // audio lowered for the whole call. (0.4.0+;
+                                         // see "Apps that play music" below)
     uploadDuringCall: Bool = true        // segments upload WHILE recording (one at a
                                          // time, auto-paused when call quality drops),
                                          // so the post-call wait is ~the final segment
@@ -165,6 +173,11 @@ the app and post-call uploads stall until next launch.
 
     // OR custom consent UI — MUST display CrowdPlayConsent.text verbatim, then:
     let consent = ConsentRecord(givenAt: Date())
+
+    // Voice-AI apps only (0.4.0+): per-session voice / persona / context,
+    // see "The voice AI" below:
+    // await engine.join(displayName: name, roomCode: code, consent: consent,
+    //                   agent: CrowdPlayAgentOptions(voice: "Aoede", context: "..."))
 
 roomCode is any string the participants share (like a meeting ID); everyone
 who joins with the same code lands in the same call and the same aligned
@@ -276,13 +289,24 @@ validated until it runs on a real iPhone. Do not end with "the
 implementation is complete" — your FINAL message after implementing must
 walk the builder through their next step, explicitly:
 
+0. (Terminal and desktop agents: do these two yourself BEFORE the
+   message; builders get stuck on both.) Signing: set CODE_SIGN_STYLE =
+   Automatic and fill in the builder's Team ID, detected with
+   `defaults read com.apple.dt.Xcode IDEProvisioningTeams` (teamID) or
+   `security find-identity -v -p codesigning`; if neither shows a team
+   the builder has not signed into Xcode, so walk them through Xcode >
+   Settings > Accounts > + > Apple ID (a free Personal Team is fine) and
+   detect again. Use a bundle ID unique to them (com.<name>.<app>), and
+   build once for a device with `-allowProvisioningUpdates` so Xcode
+   creates the certificate. Then open the project in Xcode for them:
+   `open <AppName>.xcodeproj` (React Native: the ios/*.xcworkspace).
 1. Plug an iPhone into the Mac; tap "Trust This Computer" on the phone.
    First time only: Settings > Privacy & Security > Developer Mode > ON
    (the phone restarts).
-2. In Xcode: Signing & Capabilities > pick a Team (a free Personal Team
-   works); select the iPhone in the device menu; press Run. If the phone
-   says "Untrusted Developer": Settings > General > VPN & Device
-   Management > Trust, then Run again.
+2. In the Xcode window you opened: select the iPhone in the device menu;
+   press Run. If the phone says "Untrusted Developer": Settings > General
+   > VPN & Device Management > Trust, then Run again. (Signing is already
+   set; do not send the builder to Signing & Capabilities.)
 3. In the app: allow microphone + camera when prompted, join any room
    code, talk for about a minute, then leave.
 4. Check https://dashboard.crowdplay.ai — the session appears there with
@@ -298,9 +322,31 @@ How it works — all server-side, nothing to wire up:
   it hears the user directly and answers with natural voice and timing;
   the user can interrupt it mid-sentence).
 - The app writes ZERO AI code. No model API calls, no AI keys in the app,
-  no chat backend, no STT/TTS. The AI's persona (system prompt), voice,
-  and model are configured by the BUILDER on the CrowdPlay dashboard and
-  apply from the next call — never ship persona text in the app.
+  no chat backend, no STT/TTS. The provider, model and API key are set by
+  the BUILDER on the CrowdPlay dashboard, and so are the DEFAULT persona
+  (system prompt) and voice.
+- Per-join overrides (0.4.0+): the app MAY change the voice and the persona
+  and pass a short context text for one session, through `join`:
+
+      await engine.join(displayName: name, roomCode: code, consent: consent,
+                        agent: CrowdPlayAgentOptions(
+                            voice: "Aoede",                      // optional
+                            systemPrompt: "You are Mia, ...",    // optional, replaces the dashboard persona
+                            context: "The user's name is Sam. Last time you practised past tense."))
+
+  `voice` must be one of the configured provider's voices (Gemini: Charon,
+  Aoede, Fenrir, Kore, Puck; OpenAI: marin, cedar, alloy, ash, ballad,
+  coral, echo, sage, shimmer, verse; Grok: Ara, Rex, Sal, Eve, Leo); an
+  unknown name falls back to the dashboard voice, never an error. Caps:
+  systemPrompt 8192 characters, context 4000 (longer is truncated). Rules:
+  the options of the join that CREATES the AI apply to the whole room (a
+  later joiner's are ignored); they are fixed for the session (leave and
+  join again to change); the app can never change the provider, the model
+  or the key. MEMORY is built with `context`: keep a few sentences per
+  user in the app's own storage (name, preferences, where they left off,
+  a short summary of the last session from `engine.latestCaption` or the
+  delivered transcript) and pass them at every join. Keep it short; it is
+  read on every turn.
 - Every conversation is recorded and transcribed by the platform
   automatically (both sides, timestamped).
 - RECOMMENDED: voice-AI apps should be AUDIO-ONLY (`audioOnly: true` —
@@ -358,6 +404,74 @@ What the app builds — the AI's on-screen presence:
   delivered with the session regardless.
 - Testing: the AI appears only on a real iPhone (simulators have no
   microphone). Join a room, wait ~3 s, it speaks first.
+
+## Apps that play music or other audio during the call (0.4.0+)
+
+Shared-listening apps (DJ rooms, watch/listen-together, workout music)
+play music ON EACH DEVICE while the call runs. The rules:
+
+- Set `config.otherAudio = .mix` (or `.mixDucked`). Without it the SDK's
+  call session is exclusive: iOS pauses Apple Music / Spotify the moment
+  the call joins, and their playback interrupts the recording engine.
+  Do NOT work around this with AVAudioSession (rule 2 still applies) —
+  the policy is the whole API.
+- Music is heard on the device only. It NEVER rides the call: each phone
+  plays its own copy (Apple MusicKit `ApplicationMusicPlayer`, Spotify's
+  app via its SDK, or AVPlayer for previews) and the app keeps them in
+  step with a shared clock and small data-channel messages (below).
+- Headphones are a HARD rule in a music app, stricter than the SDK's
+  warning: through the phone speaker, music goes straight into the
+  microphone, into every other participant's ears, and into the
+  recording (those segments are labelled `bleed`). Gate playback on
+  `engine.crossTalkRisk == false`; when it turns true, pause locally and
+  show "put on headphones", resume when it clears. Bluetooth headphones
+  keep full-quality output (the SDK uses A2DP and records from the
+  phone's built-in microphone; that is expected).
+- Apple MusicKit needs `NSAppleMusicUsageDescription` in Info.plist and
+  the MusicKit App Service enabled on the App ID (developer portal);
+  neither involves the SDK.
+- The session manifest records `device.other_audio_policy` so QC knows
+  music may have been playing on the device.
+
+## The room as a data channel + the participant roster (any version)
+
+`engine.room` is the live LiveKit `Room` (re-exported, no extra import).
+Use it for app-level real-time state (game state, a shared queue, whose
+turn it is, reactions) — no backend needed for a room-sized group:
+
+    // Send (any participant; the token grants data publishing):
+    let bytes = try JSONEncoder().encode(message)
+    try await engine.room.localParticipant.publish(
+        data: bytes,
+        options: DataPublishOptions(reliable: true, topic: "myapp.v1"))
+        // reliable: false for high-rate, loss-tolerant things (reactions)
+
+    // Receive + roster changes: your own RoomDelegate on engine.room.
+    final class RoomBus: RoomDelegate {
+        func room(_ room: Room, participant: RemoteParticipant?,
+                  didReceiveData data: Data, forTopic topic: String,
+                  encryptionType: EncryptionType) {
+            guard topic == "myapp.v1" else { return }   // ignore SDK topics
+            Task { @MainActor in /* decode, apply */ }
+        }
+        func room(_ room: Room, participantDidConnect p: RemoteParticipant) {}
+        func room(_ room: Room, participantDidDisconnect p: RemoteParticipant) {}
+    }
+    engine.room.add(delegate: bus)   // keep a strong reference to `bus`
+
+Rules: use your OWN topic prefix and ignore every other topic (the SDK
+uses `crowdplay.*`); keep messages small (< 15 KB); check the exact
+`DataPublishOptions` initializer against the headers. Delivery is
+room-only and live-only: a late joiner receives nothing from before it
+connected, so one participant (e.g. the earliest `joinedAt`) should
+re-broadcast the full state when someone connects.
+
+Roster: `engine.room.localParticipant` and `engine.room.remoteParticipants`
+(keyed by identity). Each `Participant` has `identity?.stringValue`
+(unique per join, `<name>-<8hex>`), `name` (the display name passed to
+join), `joinedAt: Date?` (join order), `isSpeaking`, `audioLevel`. Skip
+`participant.isVoiceAgent` in people counts. Two people may type the same
+display name; identities stay distinct.
 
 ## Accessing recordings (no AWS, no SDK — plain HTTPS)
 

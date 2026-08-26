@@ -123,10 +123,10 @@ you):
 
 1. **Plug your iPhone into the Mac** with its cable. Tap **Trust** on the
    phone if asked, and enter your phone passcode.
-2. **Signing**: in Xcode, the project's *Signing & Capabilities* tab needs
-   a "Team". Click the dropdown, choose **Add an Account…**, and sign in
-   with your Apple ID. Then select your name ("Personal Team"). This is
-   free.
+2. **Signing**: the AI sets this up for you and opens the project in
+   Xcode itself. If it asks you to sign into Xcode first: Xcode →
+   Settings → Accounts → **+** → Apple ID (your normal Apple ID; the
+   free "Personal Team" is all you need), then tell the AI you are done.
 3. **Developer Mode** (first time only): the phone will refuse to run the
    app until you enable Settings → Privacy & Security → **Developer
    Mode** → on, then restart the phone.
