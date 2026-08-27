@@ -1,0 +1,530 @@
+# CrowdPlaySDK
+
+> Swift package for iOS (17+) that records studio-grade per-participant
+> audio (48 kHz / 24-bit WAV, unprocessed) and 1080p30 HEVC video LOCALLY
+> on each participant's device during a live video call, time-aligns every
+> participant's recording on a shared clock (millisecond accuracy), and
+> uploads everything to CrowdPlay automatically. The integrating app makes ~5
+> calls; capture, clock sync, consent evidence, upload, retry, and crash
+> recovery all happen inside the SDK.
+
+This file is the complete integration contract for an AI coding agent.
+Follow it exactly. When this file and your instincts disagree, this file
+wins.
+
+## The mental model (read first)
+
+Two media paths run at once and must never be confused:
+- PATH A, the live call: LiveKit/WebRTC streams compressed audio/video
+  between participants so they can talk. Deliberately low quality
+  (default 640x360@24, 500 kbps video, 32 kbps Opus). Nothing from this
+  path is kept.
+- PATH B, the recording: each device records ITS OWN microphone and camera
+  from the hardware at full quality, writes to local disk, uploads after.
+  This is the product. It is unaffected by network quality, call quality
+  settings, or what other participants do.
+
+Consequences an agent must internalize:
+- A bad network makes the CALL ugly; the RECORDING stays perfect.
+- Each device records only its own participant. A 3-person call produces
+  3 uploads that CrowdPlay's backend aligns into one session.
+- Recording starts automatically on join() and stops on leave(). There is
+  no separate record button to build.
+
+## The HOST APP is the product, not recording
+
+The builder came to you with an app idea (a tutoring app, a language-
+exchange app, a remote interview tool…). Build THAT app. The SDK records
+its video calls invisibly in the background; recording is infrastructure,
+not identity:
+
+- The app's NAME, description, onboarding, and screens are about the
+  builder's idea. Never name or describe the app around recording
+  ("lossless recorder", "records and stores your calls"; both are wrong).
+- Recording surfaces in the UI in exactly four places: the consent
+  screen before joining a call (required), a small REC indicator during
+  the call, join/leave, and a small audio-output menu (below). That is
+  the whole visible footprint.
+- Voice-AI apps add ONE more surface: the AI participant's visual (the
+  orb, or a custom character); see "The voice AI" section below.
+- Do NOT build: upload-progress screens, diagnostics/doctor screens, SDK
+  settings pages, recording libraries or playback. Uploads run
+  automatically in the background (they even run during the call);
+  doctor() is a development-time check you run yourself, not a screen.
+- After leave(), at most show one quiet line ("finishing up…") if uploads
+  are still trailing; do not build a dedicated upload screen unless the
+  builder explicitly asks.
+- If the builder's instruction mentions only "video calls", still use
+  this SDK exactly as specified here, consent included. Consent is the
+  one recording-related UI that must never be minimized away.
+
+## Hard rules (violations corrupt recordings or break builds)
+
+1. CrowdPlaySDK is the ONLY package you add and `import CrowdPlaySDK` the ONLY
+   import you write. CrowdPlaySDK re-exports everything, including the LiveKit
+   call-UI types (SwiftUIVideoView, RemoteParticipant, Room). NEVER add,
+   pin, import, or update LiveKit or WebRTC yourself; the correct version
+   ships inside CrowdPlaySDK, matched to the capture engine. Adding your own
+   causes duplicate-symbol build failures or, worse, a version mismatch
+   that silently breaks capture.
+2. NEVER write AVAudioSession, AVAudioEngine, AVCaptureSession, or
+   AVAudioRecorder code in an app using CrowdPlaySDK. The SDK owns the
+   microphone and the camera, and iOS allows only one owner. Touching them,
+   even "harmlessly" setting a category, corrupts the recording.
+3. NEVER skip, fake, or auto-dismiss the consent step. join() requires a
+   ConsentRecord (non-optional parameter; the compiler enforces it) and
+   the user must actually SEE the consent text before you mint one.
+   Constructing ConsentRecord(givenAt: Date()) without showing
+   CrowdPlayConsent.text to the user creates false legal evidence.
+4. NEVER call the microphone/camera before Info.plist has
+   NSMicrophoneUsageDescription and NSCameraUsageDescription. iOS kills
+   the app instantly (not an exception you can catch).
+5. Test on a REAL iPhone. The Simulator has no camera or microphone;
+   recording code paths cannot be exercised there at all.
+
+## Integration procedure
+
+### Step 1: add the package
+
+Xcode: File > Add Package Dependencies > paste this repository's URL >
+add product "CrowdPlaySDK" to the app target. The package resolves a compiled
+binary (CrowdPlaySDKCore) plus a thin source shim; no other setup.
+
+### Step 2: Info.plist
+
+    NSMicrophoneUsageDescription = "Records your microphone during sessions."
+    NSCameraUsageDescription     = "Records your camera during sessions."
+    UIBackgroundModes            = [audio]
+
+UIBackgroundModes audio keeps capture alive if the app is briefly
+backgrounded and lets uploads finish after the call.
+
+### Step 3: configure at launch
+
+    import CrowdPlaySDK
+
+    // In App.init() or application(_:didFinishLaunchingWithOptions:):
+    CrowdPlay.configure(CrowdPlayConfiguration(
+        serverURL: URL(string: "https://dashboard.crowdplay.ai")!,
+        appKey: "<the builder's liva_pk_… key from the CrowdPlay dashboard>"
+    ))
+
+configure() is also the crash-recovery hook: it resumes any uploads
+interrupted by a crash, reboot, or dead battery. Call it exactly once,
+before any other SDK use (using the SDK unconfigured is a deliberate
+preconditionFailure with a clear message).
+
+Optional CrowdPlayConfiguration fields (defaults are hardware-proven; change
+only when asked to):
+
+    audioOnly: Bool = false              // AUDIO-ONLY app: the camera is never touched;
+                                         // no camera permission, no video captured or
+                                         // uploaded, voice-only calls. Skip
+                                         // NSCameraUsageDescription and all video UI.
+                                         // The audio path is identical. (0.3.0+)
+    uploadsEnabled: Bool = true          // false = recordings stay on device (dev only)
+    deleteAfterUpload: Bool = true       // local files removed only AFTER S3 acknowledges
+    videoUploadsOnCellular: Bool = false // audio+manifests always upload on any network;
+                                         // video (~2 GB/session) waits for WiFi unless true
+    otherAudio: OtherAudioPolicy = .interrupt
+                                         // .interrupt: exclusive call session, other
+                                         // apps' audio pauses at join (classic call).
+                                         // .mix: Apple Music / Spotify / podcasts keep
+                                         // playing through the call (music apps,
+                                         // shared listening). .mixDucked: same, other
+                                         // audio lowered for the whole call. (0.4.0+;
+                                         // see "Apps that play music" below)
+    uploadDuringCall: Bool = true        // segments upload WHILE recording (one at a
+                                         // time, auto-paused when call quality drops),
+                                         // so the post-call wait is ~the final segment
+    requiredFreeDiskBytes: Int64 = 8 GB  // join() refuses below this
+    remoteAudioGain: Double = 1.0        // playout gain; >1.0 increases cross-talk bleed
+    logSessionsTreeAtLaunch: Bool = false
+    callQuality: CallQuality             // PATH A ONLY, see below
+
+CallQuality (live call appearance; the recording is always full quality
+regardless): videoWidth/videoHeight (default 640x360, clamped
+160x90…1280x720), videoFps (24, clamped 10…30), videoBitrate (500_000,
+clamped 100k…2.5M), audioBitrate (32_000, clamped 16k…128k). Raising these
+costs uplink bandwidth and thermal headroom that the recording needs on
+long sessions; leave defaults unless the builder explicitly wants a
+prettier live picture.
+
+### Step 4: background upload hook
+
+    // UIApplicationDelegate:
+    func application(_ application: UIApplication,
+                     handleEventsForBackgroundURLSession identifier: String,
+                     completionHandler: @escaping () -> Void) {
+        CrowdPlay.handleBackgroundURLSessionEvents(completionHandler: completionHandler)
+    }
+
+Without this, iOS eventually stops delivering background-upload events to
+the app and post-call uploads stall until next launch.
+
+### Step 5: consent, then join
+
+    @StateObject private var engine = CallEngine()   // one per app
+
+    // The drop-in consent screen (recommended):
+    CrowdPlayConsentView { consent in
+        Task { await engine.join(displayName: name, roomCode: code, consent: consent) }
+    }
+
+    // OR custom consent UI: MUST display CrowdPlayConsent.text verbatim, then:
+    let consent = ConsentRecord(givenAt: Date())
+
+    // Voice-AI apps only (0.4.0+): per-session voice / persona / context,
+    // see "The voice AI" below:
+    // await engine.join(displayName: name, roomCode: code, consent: consent,
+    //                   agent: CrowdPlayAgentOptions(voice: "Aoede", context: "..."))
+
+roomCode is any string the participants share (like a meeting ID); everyone
+who joins with the same code lands in the same call and the same aligned
+session. It is normalized internally (trimmed, filesystem-safe), so
+user-typed codes with stray spaces are fine.
+
+Tip: call CrowdPlay.warmUp() when the join screen appears; it pre-warms the
+backend connection so joining is faster.
+
+### Step 6: build the call UI from engine state
+
+CallEngine is an ObservableObject. Published state:
+
+    engine.phase                // .idle / .connecting / .connected / .failed(String)
+    engine.isRecording          // true while capturing
+    engine.isMicMuted
+    engine.isCameraEnabled
+    engine.recordingStartError  // String?; NON-NIL MEANS THE SESSION IS NOT
+                                // BEING RECORDED. Show it prominently and
+                                // offer engine.retryRecording(displayName:).
+    engine.uploads              // [UploadManager.Progress], per-session upload
+                                //   progress: .fraction (0…1), .isComplete,
+                                //   .bytesUploaded/.bytesTotal, .video (per-kind),
+                                //   .isFinishedWithFailures (offer retryUploads())
+    engine.uploadsOnWiFi        // false = video is waiting for WiFi; say so in UI
+    engine.crossTalkRisk        // true = far-end audio is leaking into the mic
+                                //   (loudspeaker use); tell the user to wear headphones
+    engine.headphonesConnected
+    engine.currentOutputName    // e.g. "AirPods Pro", for a route indicator
+    engine.room                 // the live Room: engine.room.remoteParticipants
+                                //   for rendering video tiles
+
+Render remote video tiles with the re-exported SwiftUIVideoView:
+
+    ForEach(Array(engine.room.remoteParticipants.values), id: \.identity) { p in
+        if let track = p.firstCameraVideoTrack {
+            SwiftUIVideoView(track)
+        }
+    }
+    // Self view: engine.room.localParticipant.firstCameraVideoTrack,
+    // rendered with SwiftUIVideoView(track, mirrorMode: .mirror).
+
+Poll engine.recordingSnapshot() at ~1 Hz for the REC indicator; it returns
+seconds recorded, segments closed, droppedSamples, inputLevelDbfs,
+inputSilent (mic delivering silence: a dead mic), audioStalled (capture
+stalled, self-healing in progress), fullScaleSamples (clipping). Surface
+inputSilent / audioStalled / clipping as visible warnings; they mean the
+data being captured right now is degraded and the user can often fix it
+(replug mic, move phone).
+
+### Step 7: controls
+
+    await engine.toggleMute()   // mutes the CALL and writes SILENCE to the
+                                // recording (never secretly records a muted user)
+    engine.toggleCamera()       // black frames on both paths; timeline continuous
+    await engine.leave()        // stops recording; uploads start automatically
+
+After leave(), uploads finish automatically in the background; most
+already went out during the call. Show at most one quiet line ("finishing
+up…") while `engine.uploads` has an incomplete entry; do NOT build a
+dedicated upload screen (see "The HOST APP is the product"). Force-
+quitting pauses uploads until next launch (nothing is lost; they resume).
+
+REQUIRED standard control: the audio-output menu. Bluetooth
+users expect to see and switch their output device, and switching output
+is also the escape hatch for Bluetooth glitches. Put a small menu/button
+on the call screen:
+
+    engine.currentOutputName    // "AirPods Pro", "iPhone speaker", ...
+                                //   show this as the menu label
+    engine.detectedOutputs      // connected device names to list
+    engine.selectOutput(.automatic) // route to the connected device
+    engine.selectOutput(.speaker)   // force the loudspeaker
+
+Menu contents: the connected device by name (selects .automatic) and
+"Speaker" (selects .speaker). Never touch AVAudioSession to do this;
+selectOutput is the whole API.
+
+Advanced (only when the builder asks): engine.micOptions +
+selectMicrophone(_:) (built-in / wired / external mic policy; Bluetooth
+mics are deliberately excluded; HFP drops the whole session to 16 kHz),
+engine.selectOutput(_:) (speaker vs automatic), engine.sessionMode.
+
+### Step 8: verify
+
+    let checks = await CrowdPlay.doctor()   // [DoctorCheck(id, passed, detail)]
+
+Doctor checks: platform (SIMULATOR detection, see below), configured,
+Info.plist strings, mic+camera permission (mic only for audioOnly apps),
+free disk, backend reachable, app key authenticates. Every failing check's
+detail names its own fix. NOTE: on a fresh install the "permissions" check
+reports "not requested yet (NORMAL)"; that is the expected pre-first-run
+state (iOS prompts at first join), not an integration bug; do not hunt
+for one. Only a DENIED state needs action (the user re-enables in
+Settings). Fix everything actionable, then move to Step 9.
+
+SIMULATOR detection (0.3.0+): on any Simulator, including CLOUD previews
+like Rork's streamed preview, doctor()'s "platform" check fails and
+join() returns a clear failure instead of a cryptic audio-engine error.
+This is expected, not a bug to debug: there is no microphone there. Every
+other screen can be validated in a simulator; calls and recording cannot.
+A doctor() run also flips the "health check" step on the builder's
+dashboard checklist automatically (the server observes it).
+
+### Step 9: hand off to the builder (REQUIRED final message)
+
+The Simulator has no camera or microphone, so NOTHING you built can be
+validated until it runs on a real iPhone. Do not end with "the
+implementation is complete"; your FINAL message after implementing must
+walk the builder through their next step, explicitly:
+
+0. (Terminal and desktop agents: do these two yourself BEFORE the
+   message; builders get stuck on both.) Signing: set CODE_SIGN_STYLE =
+   Automatic and fill in the builder's Team ID, detected with
+   `defaults read com.apple.dt.Xcode IDEProvisioningTeams` (teamID) or
+   `security find-identity -v -p codesigning`; if neither shows a team
+   the builder has not signed into Xcode, so walk them through Xcode >
+   Settings > Accounts > + > Apple ID (a free Personal Team is fine) and
+   detect again. Use a bundle ID unique to them (com.<name>.<app>), and
+   build once for a device with `-allowProvisioningUpdates` so Xcode
+   creates the certificate. Then open the project in Xcode for them:
+   `open <AppName>.xcodeproj` (React Native: the ios/*.xcworkspace).
+1. Plug an iPhone into the Mac; tap "Trust This Computer" on the phone.
+   First time only: Settings > Privacy & Security > Developer Mode > ON
+   (the phone restarts).
+2. In the Xcode window you opened: select the iPhone in the device menu;
+   press Run. If the phone says "Untrusted Developer": Settings > General
+   > VPN & Device Management > Trust, then Run again. (Signing is already
+   set; do not send the builder to Signing & Capabilities.)
+3. In the app: allow microphone + camera when prompted, join any room
+   code, talk for about a minute, then leave.
+4. Check https://dashboard.crowdplay.ai; the session appears there with
+   its recording; that is the proof the integration works end to end.
+
+## The voice AI (apps with the Voice AI switch enabled on the dashboard)
+
+How it works (all server-side, nothing to wire up):
+- When any user joins a call in a voice-AI-enabled app, CrowdPlay's
+  servers put a live AI participant into the room within ~3 seconds. It
+  joins under the identity convention `agent-<8hex>` with name `agent`,
+  greets the user, and holds a real spoken conversation (speech-to-speech:
+  it hears the user directly and answers with natural voice and timing;
+  the user can interrupt it mid-sentence).
+- The app writes ZERO AI code. No model API calls, no AI keys in the app,
+  no chat backend, no STT/TTS. The provider, model and API key are set by
+  the BUILDER on the CrowdPlay dashboard, and so are the DEFAULT persona
+  (system prompt) and voice.
+- Per-join overrides (0.4.0+): the app MAY change the voice and the persona
+  and pass a short context text for one session, through `join`:
+
+      await engine.join(displayName: name, roomCode: code, consent: consent,
+                        agent: CrowdPlayAgentOptions(
+                            voice: "Aoede",                      // optional
+                            systemPrompt: "You are Mia, ...",    // optional, replaces the dashboard persona
+                            context: "The user's name is Sam. Last time you practised past tense."))
+
+  `voice` must be one of the configured provider's voices (Gemini: Charon,
+  Aoede, Fenrir, Kore, Puck; OpenAI: marin, cedar, alloy, ash, ballad,
+  coral, echo, sage, shimmer, verse; Grok: Ara, Rex, Sal, Eve, Leo); an
+  unknown name falls back to the dashboard voice, never an error. Caps:
+  systemPrompt 8192 characters, context 4000 (longer is truncated). Rules:
+  the options of the join that CREATES the AI apply to the whole room (a
+  later joiner's are ignored); they are fixed for the session (leave and
+  join again to change); the app can never change the provider, the model
+  or the key. MEMORY is built with `context`: keep a few sentences per
+  user in the app's own storage (name, preferences, where they left off,
+  a short summary of the last session from `engine.latestCaption` or the
+  delivered transcript) and pass them at every join. Keep it short; it is
+  read on every turn.
+- Every conversation is recorded and transcribed by the platform
+  automatically (both sides, timestamped).
+- RECOMMENDED: voice-AI apps should be AUDIO-ONLY (`audioOnly: true`;
+  no camera permission, no video anywhere). A camera adds nothing to
+  talking with an AI. Keep video only when the app ALSO has calls
+  between people; the AI screen itself still follows the layout below.
+
+The AI conversation screen, the approved standard layout:
+- The animated visual front and center, large; it IS the screen.
+- NO self camera preview and NO video tiles on this screen, ever.
+- Around it, only: the AI's name/persona, a small REC indicator, a
+  leave button, and the small audio-output menu. One calm screen, one
+  living visual, nothing competing with it (the SDK's sample app,
+  Examples/CrowdPlaySample, is this exact interface).
+
+What the app builds, the AI's on-screen presence:
+- The AI publishes AUDIO ONLY. Never render it as a camera tile, an
+  empty box, or a static image; never count it as a generic user in
+  participant counts. Detect it with `participant.isVoiceAgent`.
+- The visual is a MENU, zero-effort to fully custom (0.3.4+ for 2-5):
+  1. Orb (default): `CrowdPlayVoiceView(engine: engine)`, breathes
+     idle, rings with the user's voice, pulses with the AI's. Style via
+     `CrowdPlayVoiceStyle(variant:agentColor:listeningColor:idleColor:size:)`.
+  2. Bars: `CrowdPlayVoiceStyle(variant: .bars)`, equalizer look, good
+     under other content (scoreboards, question cards, quizzes).
+  3. Halo around the app's own art: `CrowdPlayVoiceView(engine: engine)
+     { Image("mascot") }`, animated ring + glow around any view
+     (portrait, logo, character).
+  4. Make ANY view alive: `yourView.voiceReactive(monitor)`, breathing,
+     pulse and speech glow on the app's own art in one line.
+  5. Fully custom (best for characters): drive ANY visual from
+     `CrowdPlayVoiceMonitor`, an ObservableObject publishing `phase`
+     (.connecting/.idle/.listening/.speaking) and `energy` (smoothed 0…1
+     loudness). Example, an illustrated tutor that reacts to the
+     conversation:
+
+      struct TutorAvatar: View {
+          @StateObject private var voice: CrowdPlayVoiceMonitor
+          init(engine: CallEngine) {
+              _voice = StateObject(wrappedValue: CrowdPlayVoiceMonitor(engine: engine))
+          }
+          var body: some View {
+              CharacterView(                       // the app's own art
+                  mouthOpen: voice.phase == .speaking ? voice.energy : 0,
+                  pose: voice.phase == .listening ? .leanIn : .idleBlink)
+          }
+      }
+
+  Any art pipeline works the same way (SwiftUI shapes, Lottie, Rive,
+  sprite frames): bind mouth/pose/glow to `phase` + `energy`.
+- Live captions (0.3.4+): each line the AI and the user say is streamed
+  as it is spoken; observe `engine.latestCaption` (`role` "agent" or
+  "user", `text`). For speech bubbles, subtitles, language-learning
+  corrections. Optional UI; the full timestamped transcript is always
+  delivered with the session regardless.
+- Testing: the AI appears only on a real iPhone (simulators have no
+  microphone). Join a room, wait ~3 s, it speaks first.
+
+## Apps that play music or other audio during the call (0.4.0+)
+
+Shared-listening apps (DJ rooms, watch/listen-together, workout music)
+play music ON EACH DEVICE while the call runs. The rules:
+
+- Set `config.otherAudio = .mix` (or `.mixDucked`). Without it the SDK's
+  call session is exclusive: iOS pauses Apple Music / Spotify the moment
+  the call joins, and their playback interrupts the recording engine.
+  Do NOT work around this with AVAudioSession (rule 2 still applies);
+  the policy is the whole API.
+- Music is heard on the device only. It NEVER rides the call: each phone
+  plays its own copy (Apple MusicKit `ApplicationMusicPlayer`, Spotify's
+  app via its SDK, or AVPlayer for previews) and the app keeps them in
+  step with a shared clock and small data-channel messages (below).
+- Headphones are a HARD rule in a music app, stricter than the SDK's
+  warning: through the phone speaker, music goes straight into the
+  microphone, into every other participant's ears, and into the
+  recording (those segments are labelled `bleed`). Gate playback on
+  `engine.crossTalkRisk == false`; when it turns true, pause locally and
+  show "put on headphones", resume when it clears. Bluetooth headphones
+  keep full-quality output (the SDK uses A2DP and records from the
+  phone's built-in microphone; that is expected).
+- Apple MusicKit needs `NSAppleMusicUsageDescription` in Info.plist and
+  the MusicKit App Service enabled on the App ID (developer portal);
+  neither involves the SDK.
+- The session manifest records `device.other_audio_policy` so QC knows
+  music may have been playing on the device.
+
+## The room as a data channel + the participant roster (any version)
+
+`engine.room` is the live LiveKit `Room` (re-exported, no extra import).
+Use it for app-level real-time state (game state, a shared queue, whose
+turn it is, reactions); no backend needed for a room-sized group:
+
+    // Send (any participant; the token grants data publishing):
+    let bytes = try JSONEncoder().encode(message)
+    try await engine.room.localParticipant.publish(
+        data: bytes,
+        options: DataPublishOptions(reliable: true, topic: "myapp.v1"))
+        // reliable: false for high-rate, loss-tolerant things (reactions)
+
+    // Receive + roster changes: your own RoomDelegate on engine.room.
+    final class RoomBus: RoomDelegate {
+        func room(_ room: Room, participant: RemoteParticipant?,
+                  didReceiveData data: Data, forTopic topic: String,
+                  encryptionType: EncryptionType) {
+            guard topic == "myapp.v1" else { return }   // ignore SDK topics
+            Task { @MainActor in /* decode, apply */ }
+        }
+        func room(_ room: Room, participantDidConnect p: RemoteParticipant) {}
+        func room(_ room: Room, participantDidDisconnect p: RemoteParticipant) {}
+    }
+    engine.room.add(delegate: bus)   // keep a strong reference to `bus`
+
+Rules: use your OWN topic prefix and ignore every other topic (the SDK
+uses `crowdplay.*`); keep messages small (< 15 KB); check the exact
+`DataPublishOptions` initializer against the headers. Delivery is
+room-only and live-only: a late joiner receives nothing from before it
+connected, so one participant (e.g. the earliest `joinedAt`) should
+re-broadcast the full state when someone connects.
+
+Roster: `engine.room.localParticipant` and `engine.room.remoteParticipants`
+(keyed by identity). Each `Participant` has `identity?.stringValue`
+(unique per join, `<name>-<8hex>`), `name` (the display name passed to
+join), `joinedAt: Date?` (join order), `isSpeaking`, `audioLevel`. Skip
+`participant.isVoiceAgent` in people counts. Two people may type the same
+display name; identities stay distinct.
+
+## Accessing recordings (no AWS, no SDK, plain HTTPS)
+
+The app key doubles as the data credential:
+
+    GET https://dashboard.crowdplay.ai/sessions
+        header x-liva-key: <app key>
+        -> [{sessionId, state ("uploading"|"ok"|"partial"|"failed"),
+             participants, warnings, uploadedAt}]
+
+    GET https://dashboard.crowdplay.ai/sessions/<sessionId>/files
+        header x-liva-key: <app key>
+        -> [{path, bytes, url}]   // url = 1-hour presigned download
+
+deliverable/ is what a consumer uses: speaker-<name>.wav per participant
+(48 kHz/24-bit, drift-corrected; all files play together with NO offset),
+conversation.wav (mixed), conversation_stereo.wav (2-person),
+alignment.json, qc.json (quality verdict). raw/ is the untouched
+per-device capture. A key can only see its own app's sessions. Humans use
+the same data via https://dashboard.crowdplay.ai (sign in, click, download).
+
+## Facts, limits, troubleshooting
+
+- iOS 17+, Swift 5.10+. Ships LiveKit (exact-pinned) + swift-atomics inside.
+- Storage: ~2 GB per participant-hour (video-dominated). join() refuses
+  below 8 GB free (configurable).
+- Keep the screen awake in sessions: view.onAppear
+  { UIApplication.shared.isIdleTimerDisabled = true } (and false on leave).
+  There is no CallKit integration; a locked phone suspends capture.
+- Participants should wear wired or closed-back headphones. Loudspeaker
+  playback leaks the far end into the local mic (crossTalkRisk warns live).
+- Interruptions (phone call, Siri, route change, reconnect) are survived:
+  capture watchdogs force-restart a stalled engine within ~3 s and every
+  event is logged into the session manifest with timestamps.
+- Slow join or glitchy first seconds of a recording = poor radio
+  environment (congested 2.4 GHz WiFi + Bluetooth share the antenna) or
+  the Xcode debugger attached; NOT an integration bug. Capture self-heals
+  once the link settles. Advise: better network, wired headphones, launch
+  from the home screen when evaluating quality.
+- "unauthorized"/401 from the backend: the app key is wrong; sign in at
+  https://dashboard.crowdplay.ai, reveal the key, and copy it again.
+- Uploads crawling on an otherwise-fine network: check for a VPN, iCloud
+  Private Relay, or Low Data Mode on the phone. A VPN can cut upload
+  throughput 100×, and Low Data Mode marks WiFi "expensive," which makes
+  video wait forever for real WiFi. Verified in the field: turning the
+  VPN off took one phone from ~1 Mbps to full line rate.
+- Build error "duplicate symbol"/"multiple commands produce" mentioning
+  LiveKit or WebRTC: the app added its own LiveKit dependency; remove it
+  (rule 1).
+- App crashes instantly on join: missing Info.plist usage description
+  (rule 4). doctor() catches this.
+
+Reference integration: Examples/CrowdPlaySample in this repository, a
+complete consent -> join -> record -> upload app in ~150 lines. Prefer
+copying its structure over inventing one.
+Human-readable docs: README.md. Zero-experience walkthrough: GETTING_STARTED.md.
