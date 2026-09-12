@@ -35,7 +35,8 @@ Consequences an agent must internalize:
 
 The builder came to you with an app idea (a tutoring app, a language-
 exchange app, a remote interview tool…). Build THAT app. The SDK records
-its video calls invisibly in the background; recording is infrastructure,
+its video calls in the background, disclosed to participants through the
+required consent screen and the REC indicator; recording is infrastructure,
 not identity:
 
 - The app's NAME, description, onboarding, and screens are about the
@@ -180,9 +181,11 @@ the app and post-call uploads stall until next launch.
     //                   agent: CrowdPlayAgentOptions(voice: "Aoede", context: "..."))
 
 roomCode is any string the participants share (like a meeting ID); everyone
-who joins with the same code lands in the same call and the same aligned
-session. It is normalized internally (trimmed, filesystem-safe), so
-user-typed codes with stray spaces are fine.
+who joins with the same code through the same app key lands in the same call
+and the same aligned session. Codes are namespaced per app on the server, so
+another builder's users typing the same code never land in your call. It is
+normalized internally (trimmed, filesystem-safe), so user-typed codes with
+stray spaces are fine.
 
 Tip: call CrowdPlay.warmUp() when the join screen appears; it pre-warms the
 backend connection so joining is faster.
@@ -336,7 +339,9 @@ How it works (all server-side, nothing to wire up):
 
   `voice` must be one of the configured provider's voices (Gemini: Charon,
   Aoede, Fenrir, Kore, Puck; OpenAI: marin, cedar, alloy, ash, ballad,
-  coral, echo, sage, shimmer, verse; Grok: Ara, Rex, Sal, Eve, Leo); an
+  coral, echo, sage, shimmer, verse; Grok: Ara, Rex, Sal, Eve, Leo;
+  OpenAI GPT-Live: quartz, ripple, vesper, willow, stone, gleam, meridian,
+  bossa, tempo, beacon, delta, cinder); an
   unknown name falls back to the dashboard voice, never an error. Caps:
   systemPrompt 8192 characters, context 4000 (longer is truncated). Rules:
   the options of the join that CREATES the AI apply to the whole room (a
@@ -347,6 +352,36 @@ How it works (all server-side, nothing to wire up):
   a short summary of the last session from `engine.latestCaption` or the
   delivered transcript) and pass them at every join. Keep it short; it is
   read on every turn.
+- Agent tools + live context (0.5.0+, D-103; needs the app's dashboard
+  config on the OpenAI GPT-Live provider with an AI brain enabled —
+  ignored otherwise, never an error). Tools let the AI SEE app state and
+  ACT in the app; this is how you build games or assistants where the AI
+  is a real participant. Pass tools at join and handle calls with
+  ordinary Swift — no AI code, no keys:
+
+      await engine.join(displayName: name, roomCode: code, consent: consent,
+          agent: CrowdPlayAgentOptions(tools: [
+              CrowdPlayAgentTool(name: "get_game_state",
+                  description: "The current players, roles you know, and votes."),
+              CrowdPlayAgentTool(name: "cast_vote",
+                  description: "Vote to eliminate one player.",
+                  parametersJSON: #"{"type":"object","properties":{"player":{"type":"string"}},"required":["player"]}"#),
+          ]))
+      engine.onAgentToolCall = { name, argsJSON in
+          // Ordinary app code; return the result as a JSON string, or nil
+          // to decline on this device (first device to answer wins).
+          switch name {
+          case "get_game_state": return game.stateJSON()
+          case "cast_vote": return game.castVote(argsJSON)
+          default: return nil
+          }
+      }
+
+  The AI waits about 12 seconds per call, then carries on gracefully.
+  Max 16 tools; names are letters/digits/underscore/dash up to 64 chars.
+  To push events to the AI as they happen (it has no other way to know):
+  `await engine.updateAgentContext("Night ended. Sam was eliminated.")` —
+  a sentence or two, long pushes are truncated.
 - Every conversation is recorded and transcribed by the platform
   automatically (both sides, timestamped).
 - RECOMMENDED: voice-AI apps should be AUDIO-ONLY (`audioOnly: true`;
