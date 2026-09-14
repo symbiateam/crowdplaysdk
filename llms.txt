@@ -172,7 +172,9 @@ the app and post-call uploads stall until next launch.
         Task { await engine.join(displayName: name, roomCode: code, consent: consent) }
     }
 
-    // OR custom consent UI: MUST display CrowdPlayConsent.text verbatim, then:
+    // OR custom consent UI: MUST display CrowdPlayConsent.text verbatim AND
+    // give access to the full terms (present CrowdPlayConsumerTermsView, or
+    // link CrowdPlayConsent.consumerTermsURL), then:
     let consent = ConsentRecord(givenAt: Date())
 
     // Voice-AI apps only (0.4.0+): per-session voice / persona / context,
