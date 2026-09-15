@@ -173,8 +173,7 @@ the app and post-call uploads stall until next launch.
     }
 
     // OR custom consent UI: MUST display CrowdPlayConsent.text verbatim AND
-    // give access to the full terms (present CrowdPlayConsumerTermsView, or
-    // link CrowdPlayConsent.consumerTermsURL), then:
+    // link to the full terms PDF (CrowdPlayConsent.consumerTermsURL), then:
     let consent = ConsentRecord(givenAt: Date())
 
     // Voice-AI apps only (0.4.0+): per-session voice / persona / context,
