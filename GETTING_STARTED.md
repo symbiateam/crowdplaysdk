@@ -37,10 +37,20 @@ here is about getting the result onto your phone.
 ## 3. React Native only: create the iOS project
 
 Swift builders can skip this. CrowdPlay is a native module, so it needs a
-real `ios/` folder and cannot run in Expo Go:
+real `ios/` folder and cannot run in Expo Go.
+
+Expo apps (managed, prebuild or EAS Build): install the package and add its
+config plugin to `app.json`; the plugin does the rest at prebuild time.
 
 ```bash
-npx expo prebuild -p ios          # only if you started from a managed Expo app
+npm install crowdplaysdk
+# app.json:  "plugins": ["crowdplaysdk"]
+npx expo prebuild -p ios
+```
+
+Bare React Native apps (no Expo):
+
+```bash
 npm install crowdplaysdk
 cd ios && pod install
 gem install xcodeproj --user-install          # one time
