@@ -122,6 +122,7 @@ engine.phase                 // .idle / .connecting / .connected / .failed(Strin
 engine.isRecording           // recording starts automatically on join
 engine.uploads               // per-session upload progress
 engine.recordingStartError   // non-nil = NOT being captured; show it
+engine.storageWarning        // non-nil = storage low: audio-only or stopped
 
 await engine.toggleMute()
 engine.toggleCamera()
@@ -180,29 +181,39 @@ backend reachability and your app key. Every failing check names its own
 fix. Then record a one-minute session on a real device and confirm the
 upload finishes.
 
-## Accessing your recordings
+## Checking your sessions
 
-Your app key is also your data-access credential: plain HTTPS, no AWS
+Your app key also lists the sessions it recorded, over plain HTTPS: no AWS
 account, no SDK required.
 
 ```bash
-BASE=https://dashboard.crowdplay.ai
-
-curl -H "x-liva-key: $APP_KEY" $BASE/sessions
-curl -H "x-liva-key: $APP_KEY" $BASE/sessions/<sessionId>/files
+curl -H "x-liva-key: $APP_KEY" https://dashboard.crowdplay.ai/sessions
 ```
 
-`deliverable/` holds what you actually use: one clean audio file per
-person, aligned so they play together with no offset, plus a mixed version
-and a quality report. You can only reach sessions recorded with your key.
+Each row carries the session id, its state (`uploading`, `ok`, `partial`
+or `failed`), the participants, participant minutes and any quality
+warnings. You only see sessions recorded with your key, and the dashboard
+shows the same list. Use it to confirm that sessions upload and render.
+
+The recordings themselves stay in CrowdPlay's storage. There is no
+download endpoint for builders: `GET /sessions/<sessionId>/files` answers
+403 to an app key, and the dashboard does not offer downloads either.
 
 ## Things to know
 
 - **Don't force-quit the app** after a session: iOS pauses background
   transfers until next launch. They resume automatically and nothing is
   lost.
-- Sessions are roughly 2 GB per participant-hour, dominated by video. The
-  SDK refuses to join below 8 GB free disk.
+- With video, a session uses about 6.8 GB per participant-hour on the phone
+  (1080p HEVC at 14 Mbps plus 24-bit audio); audio-only is about 0.5 GB.
+  Files are deleted as each one uploads. Video waits for WiFi, so on
+  cellular it stays on the phone until then. The SDK never fills the phone:
+  under 2 GB free the recording continues audio-only, under 500 MB it
+  stops, and the call itself always continues. This happens silently:
+  the SDK shows nothing on screen. `engine.storageWarning` says when it
+  happens, if you want to ask the user to free up space.
+  `doctor()` also reports free disk against `requiredFreeDiskBytes`
+  (8 GiB by default).
 - Participants should wear **wired or closed-back headphones**. A
   loudspeaker pipes the far end into the local mic and contaminates the
   track; the SDK surfaces this live via `engine.crossTalkRisk`.

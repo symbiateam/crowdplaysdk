@@ -138,7 +138,8 @@ only when asked to):
     uploadDuringCall: Bool = true        // segments upload WHILE recording (one at a
                                          // time, auto-paused when call quality drops),
                                          // so the post-call wait is ~the final segment
-    requiredFreeDiskBytes: Int64 = 8 GB  // join() refuses below this
+    requiredFreeDiskBytes: Int64 = 8 GiB // doctor() checks this; join() never refuses
+                                         // for storage (see engine.storageWarning)
     remoteAudioGain: Double = 1.0        // playout gain; >1.0 increases cross-talk bleed
     logSessionsTreeAtLaunch: Bool = false
     callQuality: CallQuality             // PATH A ONLY, see below
@@ -207,6 +208,11 @@ CallEngine is an ObservableObject. Published state:
                                 //   .bytesUploaded/.bytesTotal, .video (per-kind),
                                 //   .isFinishedWithFailures (offer retryUploads())
     engine.uploadsOnWiFi        // false = video is waiting for WiFi; say so in UI
+    engine.storageWarning       // String?; non-nil = the phone is low on storage:
+                                //   under 2 GB free the recording is audio-only,
+                                //   under 500 MB it stopped. The call continues.
+                                //   The SDK shows nothing itself; showing it
+                                //   is optional.
     engine.crossTalkRisk        // true = far-end audio is leaking into the mic
                                 //   (loudspeaker use); tell the user to wear headphones
     engine.headphonesConnected
@@ -509,31 +515,40 @@ join), `joinedAt: Date?` (join order), `isSpeaking`, `audioLevel`. Skip
 `participant.isVoiceAgent` in people counts. Two people may type the same
 display name; identities stay distinct.
 
-## Accessing recordings (no AWS, no SDK, plain HTTPS)
+## Checking sessions (no AWS, no SDK, plain HTTPS)
 
-The app key doubles as the data credential:
+The app key lists the sessions it recorded, metadata only:
 
     GET https://dashboard.crowdplay.ai/sessions
         header x-liva-key: <app key>
         -> [{sessionId, state ("uploading"|"ok"|"partial"|"failed"),
-             participants, warnings, uploadedAt}]
+             participants, participantMinutes, warnings (count),
+             warningNotes (first 8 texts), uploadedAt}]
 
-    GET https://dashboard.crowdplay.ai/sessions/<sessionId>/files
-        header x-liva-key: <app key>
-        -> [{path, bytes, url}]   // url = 1-hour presigned download
+A key sees only its own app's sessions. `state: "ok"` means the session
+uploaded and rendered cleanly; that is the proof the integration works.
+The dashboard shows the same list.
 
-deliverable/ is what a consumer uses: speaker-<name>.wav per participant
-(48 kHz/24-bit, drift-corrected; all files play together with NO offset),
-conversation.wav (mixed), conversation_stereo.wav (2-person),
-alignment.json, qc.json (quality verdict). raw/ is the untouched
-per-device capture. A key can only see its own app's sessions. Humans use
-the same data via https://dashboard.crowdplay.ai (sign in, click, download).
+Recordings NEVER leave CrowdPlay's storage. There is no download
+endpoint for builders: `GET /sessions/<sessionId>/files` answers 403 to
+an app key and to dashboard accounts, and the dashboard has no download
+button. Consequently, do NOT build any feature that fetches, plays,
+shows, or analyses a recording after the session; the app has no way to
+obtain one. What the app CAN use is what the SDK exposes on the device
+during the session (`engine.latestCaption` for voice-AI transcripts,
+`engine.recordingSnapshot()` for capture health).
 
 ## Facts, limits, troubleshooting
 
 - iOS 17+, Swift 5.10+. Ships LiveKit (exact-pinned) + swift-atomics inside.
-- Storage: ~2 GB per participant-hour (video-dominated). join() refuses
-  below 8 GB free (configurable).
+- Storage: ~6.8 GB per participant-hour with video (1080p HEVC 14 Mbps +
+  24-bit audio), ~0.5 GB audio-only; files are deleted as they upload.
+  Video waits for WiFi, so on cellular it stays on the phone until then.
+  The SDK never fills the phone (0.5.4+): under 2 GB free the recording
+  continues audio-only, under 500 MB it stops, and the call always
+  continues; engine.storageWarning says so. doctor() also checks free disk
+  against requiredFreeDiskBytes (8 GiB default). join() never refuses for
+  storage.
 - Keep the screen awake in sessions: view.onAppear
   { UIApplication.shared.isIdleTimerDisabled = true } (and false on leave).
   There is no CallKit integration; a locked phone suspends capture.
