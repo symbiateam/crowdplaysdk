@@ -444,6 +444,50 @@ What the app builds, the AI's on-screen presence:
   "user", `text`). For speech bubbles, subtitles, language-learning
   corrections. Optional UI; the full timestamped transcript is always
   delivered with the session regardless.
+- Agent audio tap (0.6.0+): the AI's voice as raw PCM, for lip sync,
+  visemes, mouth shapes or custom meters (`phase`/`energy` above update
+  only a few times a second; this is every sample):
+
+      try engine.startAgentAudioTap(frameSize: 1024, sampleRate: 16000) { frame in
+          // frame.pcm: Data, Int16 little-endian, mono, frame.frameSize samples
+          // frame.seq: 0, 1, 2... per start, contiguous
+          // frame.discontinuity: true on the first frame and after any gap
+          //   (track switch, reconnect, dropped audio): reset smoothing state
+          // frame.hostTime: mach ticks of the first sample as pulled for playout
+          visemes.feed(frame)   // the app's own code
+      }
+      engine.stopAgentAudioTap()   // leave() stops it too
+
+  WHEN: call it before or after join; it attaches to the AI's audio as soon
+  as it arrives, follows it across reconnects, and stays on until
+  `stopAgentAudioTap()` or `leave()` (a failed join also stops it).
+  WHO: only the platform's voice agent, the participant with identity
+  `agent-` plus 8 lowercase hex and name `agent` (stricter than
+  `isVoiceAgent`, so "agent smith" or "agent 0" is never tapped); with two
+  agents, the first by identity whose audio has arrived. The token server
+  does not reserve that identity: a person named exactly "agent" matches it
+  (always from the web SDK, now and then from a phone), so treat the frames
+  as call audio from the room.
+  Calling it again while on is a restart: new parameters, `seq` from 0.
+  THREAD: the handler runs on one serial background queue, never the main
+  thread; hop to the main actor for UI. Return quickly: a slow handler
+  makes later audio drop, which the next frame reports as `discontinuity`.
+  GUARANTEES: every frame is exactly `frameSize` samples (a partial frame
+  at a gap or at stop is dropped, never padded); after
+  `stopAgentAudioTap()` returns no new frame is delivered, but it never
+  waits for the handler, so one call already on its way may still run (it
+  can even begin just after stop returns) and nothing follows it: release
+  what the handler uses only once that call is done; nothing is delivered
+  while no agent is in the room. LATENCY: `hostTime` is when the audio was
+  pulled for playout; the user hears it later by the output latency, small
+  on the speaker and wired headphones, often 100 to 300 ms on Bluetooth, so
+  delay the visual by roughly
+  `AVAudioSession.sharedInstance().outputLatency` if lip sync must be
+  exact. LIMITS: `sampleRate` 8000...48000, `frameSize` >= 1, and a frame
+  must last 10 ms to 1 s; otherwise it throws
+  `CallEngine.AgentAudioTapError` and a tap already running is left as it
+  was. The tap reads the CALL audio only (before the speaker volume): it
+  never touches the recording, the audio session or what the user hears.
 - Testing: the AI appears only on a real iPhone (simulators have no
   microphone). Join a room, wait ~3 s, it speaks first.
 

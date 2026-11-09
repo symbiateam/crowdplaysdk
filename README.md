@@ -170,6 +170,33 @@ await engine.join(displayName: name, roomCode: room, consent: consent,
 
 See `llms.txt` for the full menu of visuals and options.
 
+### Agent audio tap
+
+For lip sync, visemes or your own meters, the SDK can hand you the AI's
+voice as it plays, in fixed frames of 16-bit mono PCM (0.6.0+):
+
+```swift
+try engine.startAgentAudioTap(frameSize: 1024, sampleRate: 16000) { frame in
+    // frame.pcm: Int16 little-endian, mono, exactly frame.frameSize samples
+    visemes.feed(frame.pcm, reset: frame.discontinuity)
+}
+engine.stopAgentAudioTap()   // leave() stops it too
+```
+
+Start it before or during the call: it attaches to the AI's audio as soon
+as it arrives (the participant with identity `agent-` plus 8 lowercase hex
+and name `agent`), follows it across reconnects, and stays on until you
+stop it or leave (a failed join stops it too). The handler runs on a
+background queue, never the main thread, and should return quickly.
+`stopAgentAudioTap()` never waits for it: one call already on its way may
+still run just after stop returns, so release what the handler uses only
+once that call is done. Every frame is exactly `frameSize` samples;
+`discontinuity` marks the first frame and any gap. `hostTime` is when the
+frame was pulled for playout: the user hears it later by the output
+latency, which is small on the speaker and wired headphones and often 100
+to 300 ms on Bluetooth. The tap reads the call audio only. It never
+touches the recording.
+
 ## Verifying your integration
 
 ```swift
